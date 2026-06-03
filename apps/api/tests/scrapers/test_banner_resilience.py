@@ -222,55 +222,57 @@ async def test_negative_open_seats_clamped_to_zero(db_session):
 # ─── Concurrency guard ────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_advisory_lock_prevents_concurrent_runs(db_session):
-    """Two concurrent attempts — exactly one acquires the lock."""
+async def test_advisory_lock_prevents_concurrent_runs(db_session_factory):
+    """
+    Two separate DB sessions: session 1 holds the lock inside an open transaction,
+    session 2 tries to acquire it and must get False.
+    asyncpg requires separate connections for concurrent lock testing.
+    """
     from src.scrapers.lock import advisory_lock, BANNER_SCRAPER_LOCK_ID
-    import asyncio
+    from sqlalchemy import text
 
-    results = []
+    async with db_session_factory() as s1, db_session_factory() as s2:
+        # Open s1's transaction and acquire the lock — do NOT commit yet.
+        await s1.begin()
+        r1 = await s1.execute(
+            text("SELECT pg_try_advisory_xact_lock(:id)"),
+            {"id": BANNER_SCRAPER_LOCK_ID},
+        )
+        assert r1.scalar() is True, "Session 1 must acquire the lock"
 
-    async def try_acquire():
-        async with advisory_lock(db_session, BANNER_SCRAPER_LOCK_ID, "test") as acquired:
-            results.append(acquired)
-            if acquired:
-                await asyncio.sleep(0.05)
+        # While s1's transaction is still open, s2 should fail to acquire.
+        async with advisory_lock(s2, BANNER_SCRAPER_LOCK_ID, "test") as acquired:
+            assert acquired is False, "Session 2 must not acquire a held lock"
 
-    await asyncio.gather(try_acquire(), try_acquire())
-
-    assert results.count(True) == 1
-    assert results.count(False) == 1
+        await s1.rollback()  # release lock
 
 
 @pytest.mark.asyncio
 async def test_skipped_overlap_recorded_in_scraper_runs(db_session):
-    """When lock is held, a new trigger must insert a skipped_overlap record."""
+    """
+    When the advisory lock is already held, run_banner_scrape must write a
+    skipped_overlap record and return without scraping.
+    Lock is simulated via mock — true concurrent connections are tested separately.
+    """
     from src.scrapers.banner import run_banner_scrape
     from sqlalchemy import text
+    from contextlib import asynccontextmanager
 
-    # Patch scrape_subject to hold the lock long enough for a second call
-    call_count = 0
+    @asynccontextmanager
+    async def lock_already_held(session, lock_id, name):
+        yield False  # simulate: another instance holds the lock
 
-    async def slow_scrape(session, subject, term):
-        nonlocal call_count
-        call_count += 1
-        await asyncio.sleep(0.05)
-        return (1, 0)
-
-    with patch("src.scrapers.banner.scrape_subject", side_effect=slow_scrape):
-        # Fire two runs concurrently
-        await asyncio.gather(
-            run_banner_scrape(db_session, ["CS"], "202690"),
-            run_banner_scrape(db_session, ["CS"], "202690"),
-        )
+    with patch("src.scrapers.banner.advisory_lock", lock_already_held):
+        await run_banner_scrape(db_session, ["CS"], "202690")
 
     result = await db_session.execute(
-        text(
-            "SELECT COUNT(*) FROM scraper_runs "
-            "WHERE scraper = 'banner' AND status = 'skipped_overlap'"
-        )
+        text("""
+            SELECT COUNT(*) FROM scraper_runs
+            WHERE scraper = 'banner' AND status = 'skipped_overlap'
+            AND started_at > NOW() - INTERVAL '5 minutes'
+        """)
     )
-    count = result.scalar()
-    assert count >= 1, "Overlapping run must produce a skipped_overlap record"
+    assert result.scalar() >= 1, "Held lock must produce a skipped_overlap record"
 
 
 # ─── Scraper health log ───────────────────────────────────────────────────────
