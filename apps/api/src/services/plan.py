@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from src.schemas.plan import (
     COURSE_CODE_PATTERN,
@@ -13,6 +14,66 @@ from src.schemas.plan import (
 logger = logging.getLogger(__name__)
 
 CREDIT_CONSISTENCY_TOLERANCE = 6
+
+
+# ── Wildcard matching ─────────────────────────────────────────────────────────
+
+def matches_wildcard(course_code: str, pattern: str) -> bool:
+    """
+    Returns True if course_code matches the wildcard pattern.
+
+    Supported forms (normalized upstream by dw_parser):
+      PHYS3XX → any PHYS 3xx course  (two trailing Xs = two digit positions)
+      CS4XX   → any CS 4xx course
+      @       → any course (universal wildcard)
+
+    Each X matches exactly one digit. PHYS3XX → ^PHYS3\\d\\d$.
+    Patterns with embedded @ (e.g. PHYS3@) should have been normalized to XX
+    by the parser before reaching this function.
+    """
+    if pattern == "@":
+        return True
+
+    code = course_code.strip().upper()
+    pat  = pattern.strip().upper()
+
+    if "X" not in pat and "@" not in pat:
+        return code == pat
+
+    regex = "^" + re.sub(r"X", r"\\d", pat) + "$"
+    try:
+        return bool(re.match(regex, code))
+    except re.error:
+        return False
+
+
+def find_matching_requirement(
+    elective_code: str,
+    still_needed: list[StillNeededItem],
+    already_satisfied: set[int],
+) -> int | None:
+    """
+    Returns the index of the first still_needed item whose options[] match
+    elective_code. Exact matches take priority over wildcard matches.
+    Returns None if no unsatisfied requirement matches.
+    """
+    elective_upper = elective_code.strip().upper()
+
+    # Phase 1: exact match
+    for i, item in enumerate(still_needed):
+        if i in already_satisfied:
+            continue
+        if elective_upper in item.options:
+            return i
+
+    # Phase 2: wildcard match
+    for i, item in enumerate(still_needed):
+        if i in already_satisfied:
+            continue
+        if any(matches_wildcard(elective_upper, opt) for opt in item.options):
+            return i
+
+    return None
 
 
 def validate_parsed_degree(raw: ParsedDegree) -> ParsedDegreeValidated:
