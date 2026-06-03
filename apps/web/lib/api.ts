@@ -78,17 +78,23 @@ export interface ParsedDegreeValidated {
 }
 
 export interface PlannedCourse {
-  code: string
-  title: string
+  course_code: string
+  title: string | null
   credits: number
-  required: boolean
+  badge: 'Required' | 'Elective' | 'TBD'
   reason: string
 }
 
 export interface SemesterPlan {
   term: string
+  term_label: string
   courses: PlannedCourse[]
   total_credits: number
+}
+
+export interface GerGroup {
+  prefix: string
+  courses: { code: string; title: string }[]
 }
 
 // ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -142,12 +148,16 @@ export function parsePlan(
 export function generatePlan(
   parsedDegree: ParsedDegreeValidated,
   preferences: { courses: string[]; credits_per_semester: number },
-): Promise<{ plan: SemesterPlan[]; projected_graduation: string }> {
+): Promise<{ semesters: SemesterPlan[]; projected_graduation: string; warnings: string[] }> {
   return apiFetch('/api/plan/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ parsed_degree: parsedDegree, preferences }),
   })
+}
+
+export function getGerCourses(): Promise<{ groups: GerGroup[] }> {
+  return apiFetch('/api/plan/ger-courses')
 }
 
 export function getScraperStatus(): Promise<{
