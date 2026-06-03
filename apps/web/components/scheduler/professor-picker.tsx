@@ -167,7 +167,7 @@ export function ProfessorPicker({ courseCode, term }: ProfessorPickerProps) {
       </button>
 
       {open && (
-        <div className="absolute z-50 w-64 top-full mt-1 rounded-lg border border-border bg-surface overflow-hidden shadow-none">
+        <div className="absolute z-50 w-64 top-full mt-1 rounded-lg border border-border bg-surface overflow-hidden">
           {sectionsLoading ? (
             <div className="px-3 py-2.5 text-xs text-muted">Loading professors…</div>
           ) : professors.length === 0 ? (
