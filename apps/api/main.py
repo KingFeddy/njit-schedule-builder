@@ -3,7 +3,8 @@ import os
 from contextlib import asynccontextmanager
 
 import sentry_sdk
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -12,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.config import settings
+from src.dependencies import get_db
 
 logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -94,6 +96,34 @@ async def health(request: Request):
             status_code=503,
             media_type="application/json",
         )
+
+
+@app.get("/api/scraper/status")
+async def scraper_status(db: AsyncSession = Depends(get_db)):
+    """
+    Returns the last Banner scrape timestamp and status.
+    Used by the frontend to show a staleness warning when seat data is old.
+    """
+    result = await db.execute(
+        text("""
+            SELECT status, finished_at, sections_upserted, error_message
+            FROM scraper_runs
+            WHERE scraper = 'banner'
+            ORDER BY started_at DESC
+            LIMIT 1
+        """)
+    )
+    row = result.mappings().first()
+
+    if not row:
+        return {"last_scrape": None, "status": "never_run"}
+
+    return {
+        "last_scrape":       row["finished_at"].isoformat() if row["finished_at"] else None,
+        "status":            row["status"],
+        "sections_updated":  row["sections_upserted"],
+        "error":             row["error_message"],
+    }
 
 
 @app.get("/api/version")
