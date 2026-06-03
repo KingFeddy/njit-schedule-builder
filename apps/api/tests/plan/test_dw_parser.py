@@ -181,11 +181,16 @@ class TestValidateParsedDegree:
             validate_parsed_degree(self._valid(credits_required=40))
 
     def test_transfer_codes_filtered_not_rejected(self):
-        parsed = self._valid(completed_courses=["CS280", "ENG121", "CHEM5", "CS331"])
+        # CHEM5 (1 digit) and ENGL1010 (4 digits) don't match ^[A-Z]{2,5}\d{3}[A-Z]?$
+        # ENG121 would match the pattern and is intentionally NOT tested here —
+        # the filter is format-based, not department-based.
+        parsed = self._valid(
+            completed_courses=["CS280", "ENGL1010", "CHEM5", "CS331"]
+        )
         validated = validate_parsed_degree(parsed)
         assert "CS280" in validated.completed_courses
         assert "CS331" in validated.completed_courses
-        assert "ENG121" not in validated.completed_courses
+        assert "ENGL1010" not in validated.completed_courses
         assert "CHEM5" not in validated.completed_courses
 
     def test_wildcard_options_preserved(self):

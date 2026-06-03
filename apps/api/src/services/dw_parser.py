@@ -1,0 +1,311 @@
+from __future__ import annotations
+
+import io
+import logging
+import re
+
+import pdfplumber
+
+from src.schemas.plan import ParsedDegree, StillNeededItem
+
+logger = logging.getLogger(__name__)
+
+# ── Compiled regex patterns ───────────────────────────────────────────────────
+
+# Standard NJIT course code with explicit dept prefix: "CS 280" or "CS280"
+_COURSE_CODE_RE = re.compile(r"\b([A-Z]{2,5})\s{0,2}(\d{3}[A-Z]?)\b")
+
+# Matches either a dept+number pair OR a bare number after "or".
+# Used in _extract_course_codes to handle "COM 303 or 310 or 312" → COM303,
+# COM310, COM312. The spec's _COURSE_CODE_RE alone misses the bare numbers;
+# this version carries the last-seen department forward across an "or" list.
+# Groups: (dept, num_with_dept, bare_num_after_or)
+_CODE_PART_RE = re.compile(
+    r"\b(?:([A-Z]{2,5})\s{0,2}(\d{3}[A-Z]?)|or\s+(\d{3}[A-Z]?))\b"
+)
+
+# Wildcard course: "PHYS 3@" → ("PHYS", "3"), bare "4@" → ("", "4").
+# Dept prefix is optional — DegreeWorks writes "PHYS 3@ or 4@" where the
+# second wildcard inherits PHYS from the first.
+_WILDCARD_CODE_RE = re.compile(r"(?:([A-Z]{2,5})\s{0,2})?(\d)@")
+
+# Rutgers cross-listed codes to exclude. In practice [A-Z]{2,5} already
+# rejects alphanumeric prefixes like R510/R512, but kept for explicitness.
+_RUTGERS_DEPTS = {"R510", "R512"}
+
+# "Still needed: N Class(es) in ..." or "Still needed: N Credit(s) in ..."
+# DOTALL so .* captures multi-line option lists (H&H GER has 80+ options).
+# Stops at the next "Still needed:" or end of string.
+_STILL_NEEDED_RE = re.compile(
+    r"Still needed:\s+\d+\s+(?:Class(?:es)?|Credits?)\s+in\s+(.*?)(?=Still needed:|$)",
+    re.DOTALL,
+)
+
+# Credits summary
+_CREDITS_REQUIRED_RE = re.compile(r"Credits required:\s*(\d+)")
+_CREDITS_APPLIED_RE = re.compile(r"Credits applied:\s*(\d+)")
+
+# Prose fallback: "you still need 21 more credits"
+_CREDITS_PROSE_RE = re.compile(r"you still need\s+(\d+)\s+more credits", re.IGNORECASE)
+
+# In-progress: line contains course code followed by "IP (N)"
+_IP_COURSE_RE = re.compile(
+    r"\b([A-Z]{2,5})\s{0,2}(\d{3}[A-Z]?)\b[^\n]*\bIP\s*\(\d+\)"
+)
+
+# Catalog year: "Catalog year: 2025-2026" → 2025
+_CATALOG_YEAR_RE = re.compile(r"Catalog year:\s*(\d{4})-\d{4}")
+
+# Student name: "Student name LastName, FirstName Middle"
+_STUDENT_NAME_RE = re.compile(r"Student name\s+(.+?)(?:\n|Student ID)")
+
+# Majors/minors header lines
+_MAJORS_RE = re.compile(
+    r"\bMajors?\s+(.+?)(?=\n|Minor|Program|College|Academic)", re.DOTALL
+)
+_MINOR_RE = re.compile(
+    r"\bMinors?\s+(.+?)(?=\n|Program|College|Academic)", re.DOTALL
+)
+
+# Completed course: code + letter grade + credit count + term
+# Matches: "CS 280  Programming Lang Concepts  B+  3  2025 Fall"
+_COMPLETED_COURSE_RE = re.compile(
+    r"\b([A-Z]{2,5})\s{0,2}(\d{3}[A-Z]?)\b[^\n]*\b"
+    r"([ABCDF][+-]?|[TP]|TR)\s+\d\s+\d{4}\s+(?:Fall|Spring|Summer)\b"
+)
+
+
+# ── Helper functions ──────────────────────────────────────────────────────────
+
+def _extract_course_codes(text: str) -> list[str]:
+    """
+    Extract all NJIT course codes from a text block.
+
+    Two passes:
+      1. Wildcard codes: "PHYS 3@" → "PHYS3XX", bare "4@" → "PHYS4XX"
+         (@ expands to TWO X's — one per remaining digit of a 3-digit number).
+         PHYS3XX is required by Subsystem 6's matches_wildcard: each X matches
+         exactly one digit, so PHYS3XX → ^PHYS3\\d\\d$ correctly matches PHYS310.
+         A single X would only match 2-digit numbers and silently break matching.
+
+      2. Standard codes with department inheritance: "COM 303 or 310 or 312"
+         → COM303, COM310, COM312. Bare numbers after 'or' inherit the most
+         recently seen department. This is necessary for DegreeWorks option lists
+         which only repeat the dept prefix for the first code in a run.
+
+    Excludes Rutgers cross-listed codes (R510, R512). Deduplicates, order preserved.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+
+    # Pass 1 — wildcard codes
+    last_dept: str | None = None
+    for dept, lead_digit in _WILDCARD_CODE_RE.findall(text):
+        if dept:
+            last_dept = dept
+        if not last_dept or last_dept in _RUTGERS_DEPTS:
+            continue
+        code = f"{last_dept}{lead_digit}XX"
+        if code not in seen:
+            seen.add(code)
+            result.append(code)
+
+    # Pass 2 — standard codes with dept inheritance
+    last_dept = None
+    for m in _CODE_PART_RE.finditer(text):
+        dept, num_full, bare_num = m.group(1), m.group(2), m.group(3)
+        if dept:
+            if dept in _RUTGERS_DEPTS:
+                last_dept = None
+                continue
+            last_dept = dept
+            code = f"{dept}{num_full.upper()}"
+        else:
+            if not last_dept:
+                continue
+            code = f"{last_dept}{bare_num.upper()}"  # type: ignore[union-attr]
+        if code not in seen:
+            seen.add(code)
+            result.append(code)
+
+    return result
+
+
+def _infer_requirement_name(pos: int, full_text: str, options: list[str]) -> str:
+    """
+    Derive the requirement name from the text immediately before a 'Still needed:'
+    line. DegreeWorks puts the requirement name on the line above. Falls back to
+    a dept-derived name when no clean line is found.
+    """
+    preceding = full_text[max(0, pos - 300) : pos]
+    lines = [line.strip() for line in preceding.split("\n") if line.strip()]
+
+    for candidate in reversed(lines):
+        if re.search(
+            r"\b(COMPLETE|INCOMPLETE|IN-PROGRESS|Catalog year|Credits)\b", candidate
+        ):
+            continue
+        if re.search(r"\b[A-Z]{2,5}\s+\d{3}\b", candidate):
+            continue
+        if 3 < len(candidate) < 100:
+            return candidate
+
+    dept_match = re.match(r"^([A-Z]{2,5})", options[0]) if options else None
+    return f"{dept_match.group(1)} Requirement" if dept_match else "Requirement"
+
+
+def _extract_still_needed(text: str) -> list[StillNeededItem]:
+    """
+    Extract all unfulfilled requirements from DegreeWorks text.
+
+    Formats handled:
+      Still needed: 1 Class in CS 435
+      Still needed: 3 Credits in CS 491 or PHYS 490
+      Still needed: 3 Credits in PHYS 3@ or 4@
+      Still needed: 1 Class in COM 303 or 310 or 312 ...  (long multi-line list)
+      Still needed: See [section name]                    ← never matches _STILL_NEEDED_RE
+    """
+    items: list[StillNeededItem] = []
+
+    for match in _STILL_NEEDED_RE.finditer(text):
+        options_text = match.group(1).strip()
+
+        # Safety net for malformed extractions like "Still needed: 1 Class in See ..."
+        if re.match(r"^See\s+", options_text, re.IGNORECASE):
+            continue
+
+        options = _extract_course_codes(options_text)
+        if not options:
+            continue
+
+        requirement = _infer_requirement_name(match.start(), text, options)
+        items.append(StillNeededItem(requirement=requirement, options=options))
+
+    return items
+
+
+def _clean_major_minor(raw: str) -> list[str]:
+    """
+    Parse 'Computer Science (CS), Applied Physics (APPH)' into
+    ['Computer Science', 'Applied Physics'].
+    """
+    result = []
+    for entry in raw.split(","):
+        clean = re.sub(r"\s*\([A-Z]{2,5}\)", "", entry).strip()
+        if 3 < len(clean) < 80:
+            result.append(clean)
+    return result
+
+
+# ── Main parser ───────────────────────────────────────────────────────────────
+
+def parse_degree_works_regex(pdf_bytes: bytes) -> ParsedDegree:
+    """
+    Parse a DegreeWorks PDF using pdfplumber text extraction + regex.
+    Returns a ParsedDegree for further validation via validate_parsed_degree().
+    Raises ValueError on unrecoverable parse failure (caller maps to 422).
+    """
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            pages = []
+            for page in pdf.pages:
+                # layout=True preserves column separation — DegreeWorks uses a
+                # two-column layout on some pages; without it, right-column text
+                # interleaves with left-column text and breaks the regex.
+                text = page.extract_text(layout=True)
+                if text:
+                    pages.append(text)
+            full_text = "\n".join(pages)
+    except Exception as e:
+        raise ValueError(f"pdfplumber could not read this PDF: {e}") from e
+
+    if len(full_text.strip()) < 500:
+        raise ValueError(
+            "Could not extract text from this PDF. "
+            "If it is a screenshot or scan, please download the actual DegreeWorks PDF."
+        )
+
+    logger.debug("extracted %d characters from DegreeWorks PDF", len(full_text))
+
+    # Credits
+    credits_required: int | None = None
+    credits_completed: int | None = None
+    credits_remaining: int | None = None
+
+    req_match = _CREDITS_REQUIRED_RE.search(full_text)
+    app_match = _CREDITS_APPLIED_RE.search(full_text)
+    if req_match and app_match:
+        credits_required = int(req_match.group(1))
+        credits_completed = int(app_match.group(1))
+        credits_remaining = credits_required - credits_completed
+    else:
+        prose_match = _CREDITS_PROSE_RE.search(full_text)
+        if prose_match:
+            credits_remaining = int(prose_match.group(1))
+
+    # Catalog year
+    catalog_year: int | None = None
+    cy_match = _CATALOG_YEAR_RE.search(full_text)
+    if cy_match:
+        catalog_year = int(cy_match.group(1))
+
+    # Student name
+    student_name: str | None = None
+    name_match = _STUDENT_NAME_RE.search(full_text)
+    if name_match:
+        student_name = name_match.group(1).strip()
+
+    # Majors
+    majors: list[str] = []
+    majors_match = _MAJORS_RE.search(full_text)
+    if majors_match:
+        majors = _clean_major_minor(majors_match.group(1))
+
+    # Minors
+    minors: list[str] = []
+    minor_match = _MINOR_RE.search(full_text)
+    if minor_match:
+        minors = _clean_major_minor(minor_match.group(1))
+
+    # In-progress courses
+    in_progress: list[str] = []
+    seen_ip: set[str] = set()
+    for dept, num in _IP_COURSE_RE.findall(full_text):
+        code = f"{dept}{num}"
+        if code not in seen_ip:
+            seen_ip.add(code)
+            in_progress.append(code)
+
+    # Completed courses — grade lines only; AP/transfer codes filtered later
+    completed: list[str] = []
+    seen_completed: set[str] = set()
+    for dept, num, _grade in _COMPLETED_COURSE_RE.findall(full_text):
+        code = f"{dept}{num}"
+        if code not in seen_completed and code not in seen_ip:
+            seen_completed.add(code)
+            completed.append(code)
+
+    # Still needed requirements
+    still_needed = _extract_still_needed(full_text)
+
+    logger.info(
+        "DegreeWorks parse: majors=%r  credits_remaining=%s  "
+        "still_needed=%d items  in_progress=%d",
+        majors,
+        credits_remaining,
+        len(still_needed),
+        len(in_progress),
+    )
+
+    return ParsedDegree(
+        student_name=student_name,
+        majors=majors,
+        minors=minors,
+        catalog_year=catalog_year,
+        credits_completed=credits_completed,
+        credits_required=credits_required,
+        credits_remaining=credits_remaining,
+        completed_courses=completed,
+        in_progress_courses=in_progress,
+        still_needed=still_needed,
+    )
