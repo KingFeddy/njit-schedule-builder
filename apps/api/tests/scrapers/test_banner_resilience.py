@@ -158,21 +158,34 @@ def test_valid_json_response_returns_parsed_dict():
 def test_blocked_error_is_not_retried():
     """
     BannerBlockedError must propagate immediately out of scrape_subject.
-    Retrying a blocked IP returns the same 403.
+    Retrying a blocked IP returns the same 403 — no point retrying.
     """
     from src.scrapers.banner import scrape_subject, BannerBlockedError
 
     async def run():
         mock_session = AsyncMock()
-        with patch(
-            "src.scrapers.banner._fetch_page",
-            side_effect=BannerBlockedError("403"),
-        ) as mock_fetch:
-            with pytest.raises(BannerBlockedError):
-                await scrape_subject(mock_session, "CS", "202690")
 
-            # Should not have been called more than once for the blocked page
-            assert mock_fetch.call_count == 1
+        # Mock the playwright context so no real browser is launched.
+        mock_page    = AsyncMock()
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_browser = AsyncMock()
+        mock_browser.new_context = AsyncMock(return_value=mock_context)
+        mock_pw = AsyncMock()
+        mock_pw.chromium.launch = AsyncMock(return_value=mock_browser)
+        mock_pw_cm = AsyncMock()
+        mock_pw_cm.__aenter__ = AsyncMock(return_value=mock_pw)
+        mock_pw_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.scrapers.banner.async_playwright", return_value=mock_pw_cm):
+            with patch(
+                "src.scrapers.banner._fetch_page",
+                side_effect=BannerBlockedError("403"),
+            ) as mock_fetch:
+                with pytest.raises(BannerBlockedError):
+                    await scrape_subject(mock_session, "CS", "202690")
+
+                assert mock_fetch.call_count == 1, "Must not retry after a block"
 
     asyncio.run(run())
 
