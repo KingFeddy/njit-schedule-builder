@@ -3,6 +3,9 @@ from __future__ import annotations
 import logging
 import re
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.schemas.plan import (
     COURSE_CODE_PATTERN,
     WILDCARD_PATTERN,
@@ -74,6 +77,42 @@ def find_matching_requirement(
             return i
 
     return None
+
+
+# ── Credit + title lookup ─────────────────────────────────────────────────────
+
+async def get_course_credits_and_titles(
+    session: AsyncSession,
+    course_codes: list[str],
+) -> dict[str, tuple[int, str | None]]:
+    """
+    Returns {course_code: (credits, title)} for all known codes in one query.
+    Defaults to (3, None) for unknown courses.
+
+    One ANY(:codes) round-trip replaces the N+1 per-course title lookups that
+    the original design would have made inside the semester assignment loop.
+    """
+    if not course_codes:
+        return {}
+
+    result = await session.execute(
+        text(
+            "SELECT course_code, credits, title FROM courses"
+            " WHERE course_code = ANY(:codes)"
+        ),
+        {"codes": course_codes},
+    )
+    data: dict[str, tuple[int, str | None]] = {
+        row["course_code"]: (row["credits"], row["title"])
+        for row in result.mappings()
+    }
+
+    for code in course_codes:
+        if code not in data:
+            logger.warning("Course %r not found in courses table — defaulting to 3 credits", code)
+            data[code] = (3, None)
+
+    return data
 
 
 def validate_parsed_degree(raw: ParsedDegree) -> ParsedDegreeValidated:
