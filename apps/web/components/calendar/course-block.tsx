@@ -1,27 +1,8 @@
 import type { SectionSlot } from '@/lib/api'
+import { courseColor } from '@/lib/course-colors'
 
 const PX_PER_HOUR = 48
 const START_HOUR = 7
-
-// Six deterministic dark palette colors — picked by hashing the course code
-const PALETTE = [
-  '#1E3A5F', // deep navy
-  '#1A3A2A', // deep forest
-  '#3A1A2A', // deep plum
-  '#3A2A1A', // deep bronze
-  '#1A2A3A', // deep slate
-  '#2A1A3A', // deep violet
-]
-
-function hashCode(str: string): number {
-  let h = 0
-  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
-
-function courseColor(code: string): string {
-  return PALETTE[hashCode(code) % PALETTE.length]
-}
 
 function timeToMinutes(timeStr: string): number {
   const ampm = /(\d+):(\d+)\s*(AM|PM)/i.exec(timeStr)
