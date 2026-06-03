@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
+from dataclasses import dataclass, field
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +14,12 @@ from src.schemas.plan import (
     ParsedDegree,
     ParsedDegreeValidated,
     ParseValidationError,
+    StillNeededItem,
+)
+from src.scheduler.time_utils import (
+    get_next_njit_term,
+    get_planning_terms,
+    term_to_label,
 )
 
 logger = logging.getLogger(__name__)
@@ -201,4 +209,282 @@ def validate_parsed_degree(raw: ParsedDegree) -> ParsedDegreeValidated:
         completed_courses=valid_completed,
         in_progress_courses=valid_in_progress,
         still_needed=raw.still_needed,
+    )
+
+
+# ── Planner output types ──────────────────────────────────────────────────────
+
+@dataclass
+class PlannedCourse:
+    course_code: str
+    title:       str | None
+    credits:     int
+    badge:       str        # "Required" | "Elective" | "TBD"
+    reason:      str
+
+
+@dataclass
+class SemesterCard:
+    term:          str      # e.g. "202710"
+    term_label:    str      # e.g. "Spring 2027"
+    courses:       list[PlannedCourse] = field(default_factory=list)
+    total_credits: int = 0
+
+
+@dataclass
+class GeneratedPlan:
+    semesters:            list[SemesterCard]
+    projected_graduation: str
+    warnings:             list[str]
+
+
+# ── Internal resolved-item type ───────────────────────────────────────────────
+
+@dataclass
+class _ResolvedItem:
+    requirement: str
+    course_code: str | None   # None = TBD
+    credits:     int = 3
+    title:       str | None = None
+    badge:       str = "Required"   # "Required" | "Elective" | "TBD"
+    reason:      str = ""
+
+
+# ── Option selection ──────────────────────────────────────────────────────────
+
+async def select_best_option(
+    item: StillNeededItem,
+    completed: set[str],
+    in_progress: set[str],
+    student_electives: list[str],
+    target_term: str,
+    session: AsyncSession,
+) -> str | None:
+    """
+    Returns the best concrete course code for a still_needed requirement,
+    or None if only wildcards are available (TBD slot).
+
+    Priority:
+      1. A student-added elective that appears in options
+      2. An option that has sections in target_term
+      3. First non-wildcard, non-excluded option
+    """
+    available = [
+        opt for opt in item.options
+        if opt not in completed
+        and opt not in in_progress
+        and not WILDCARD_PATTERN.search(opt)
+    ]
+
+    if not available:
+        return None
+
+    # Priority 1: student elective that's an explicit option
+    for elective in student_electives:
+        if elective in available:
+            return elective
+
+    # Priority 2: option with scraped sections in the target term
+    result = await session.execute(
+        text(
+            "SELECT DISTINCT course_code FROM sections"
+            " WHERE course_code = ANY(:codes) AND term = :term"
+        ),
+        {"codes": available, "term": target_term},
+    )
+    offered = {row["course_code"] for row in result.mappings()}
+    for opt in available:
+        if opt in offered:
+            return opt
+
+    # Priority 3: first available
+    return available[0]
+
+
+# ── Main planner ──────────────────────────────────────────────────────────────
+
+async def generate_plan(
+    validated: ParsedDegreeValidated,
+    preferences: dict,
+    session: AsyncSession,
+) -> GeneratedPlan:
+    """
+    Produces a semester-by-semester plan from a validated ParsedDegree.
+
+    preferences keys:
+      courses (list[str])       — student-chosen electives
+      credits_per_semester (int) — 12 | 15 | 18
+    """
+    warnings: list[str] = []
+
+    credit_target: int = preferences.get("credits_per_semester", 15)
+    student_electives: list[str] = [
+        e.strip().upper() for e in preferences.get("courses", [])
+    ]
+
+    completed   = set(validated.completed_courses)
+    in_progress = set(validated.in_progress_courses)
+    all_excluded = completed | in_progress
+
+    # ── 1. Early exit: already graduated ─────────────────────────────────────
+
+    if not validated.still_needed and (validated.credits_remaining or 0) == 0:
+        return GeneratedPlan(
+            semesters=[],
+            projected_graduation="This semester",
+            warnings=["You've completed all degree requirements. Congratulations!"],
+        )
+
+    # ── 2. Filter student electives ───────────────────────────────────────────
+
+    electives_to_place: list[str] = []
+    for code in student_electives:
+        if code in all_excluded:
+            warnings.append(
+                f"{code} is already completed or in progress — removed from elective list."
+            )
+        else:
+            electives_to_place.append(code)
+
+    # ── 3. Resolve still_needed → concrete courses ────────────────────────────
+
+    planning_terms = get_planning_terms(n=10)
+    current_term   = planning_terms[0]
+
+    resolved: list[_ResolvedItem] = []
+    satisfied_indices: set[int] = set()
+
+    # Match student electives to requirements (exact first, then wildcard)
+    elective_to_req: dict[str, int] = {}   # elective code → still_needed index
+    for elective in electives_to_place:
+        idx = find_matching_requirement(elective, validated.still_needed, satisfied_indices)
+        if idx is not None:
+            satisfied_indices.add(idx)
+            elective_to_req[elective] = idx
+
+    # Build resolved items
+    for i, item in enumerate(validated.still_needed):
+        if i in satisfied_indices:
+            code = next(e for e, idx in elective_to_req.items() if idx == i)
+            resolved.append(_ResolvedItem(
+                requirement=item.requirement,
+                course_code=code,
+                badge="Elective",
+                reason=f"Your elective {code} satisfies '{item.requirement}'",
+            ))
+        else:
+            best = await select_best_option(
+                item, completed, in_progress, electives_to_place, current_term, session
+            )
+            resolved.append(_ResolvedItem(
+                requirement=item.requirement,
+                course_code=best,
+                badge="Required" if best else "TBD",
+                reason=(
+                    f"Required for {validated.majors[0]}" if best
+                    else f"Requirement '{item.requirement}' — discuss with advisor."
+                ),
+            ))
+
+    # Add unmatched electives as extra courses
+    for code in electives_to_place:
+        if code not in elective_to_req:
+            resolved.append(_ResolvedItem(
+                requirement="Elective",
+                course_code=code,
+                badge="Elective",
+                reason="Additional elective you requested",
+            ))
+
+    # ── 4. Fetch credits + titles in one batched query ────────────────────────
+
+    all_codes = [r.course_code for r in resolved if r.course_code]
+    course_data = await get_course_credits_and_titles(session, all_codes)
+
+    for r in resolved:
+        if r.course_code:
+            credits, title = course_data.get(r.course_code, (3, None))
+            r.credits = credits
+            r.title   = title
+
+    # ── 5. Detect credit overflow ─────────────────────────────────────────────
+
+    total_planned = sum(r.credits for r in resolved)
+    available_credits = validated.credits_remaining or 0
+
+    if total_planned > available_credits + 6:
+        warnings.append(
+            f"Your plan requires approximately {total_planned} credits, "
+            f"but your remaining credits are listed as {available_credits}. "
+            f"Some requirements may double-count. Verify with your advisor."
+        )
+
+    # ── 6. Sort: concrete items by credits desc, TBD items last ──────────────
+
+    concrete = [r for r in resolved if r.course_code is not None]
+    tbd      = [r for r in resolved if r.course_code is None]
+    concrete.sort(key=lambda r: -r.credits)
+
+    items_pool = concrete + tbd
+
+    # ── 7. Assign to semesters ────────────────────────────────────────────────
+
+    semesters: list[SemesterCard] = []
+    term_idx = 0
+
+    while items_pool:
+        if term_idx >= len(planning_terms):
+            last = planning_terms[-1]
+            for _ in range(5):
+                last = get_next_njit_term(last)
+                if not last.endswith("50"):
+                    planning_terms.append(last)
+
+        term = planning_terms[term_idx]
+        card = SemesterCard(term=term, term_label=term_to_label(term))
+        credits_used = 0
+        remaining: list[_ResolvedItem] = []
+
+        for item in items_pool:
+            if credits_used + item.credits <= credit_target:
+                card.courses.append(PlannedCourse(
+                    course_code=item.course_code or "TBD",
+                    title=item.title,
+                    credits=item.credits,
+                    badge=item.badge,
+                    reason=item.reason,
+                ))
+                credits_used += item.credits
+            else:
+                remaining.append(item)
+
+        # Force-add if nothing fit (single course exceeds credit_target)
+        if not card.courses and items_pool:
+            forced = items_pool[0]
+            card.courses.append(PlannedCourse(
+                course_code=forced.course_code or "TBD",
+                title=forced.title,
+                credits=forced.credits,
+                badge=forced.badge,
+                reason=forced.reason,
+            ))
+            credits_used = forced.credits
+            remaining    = items_pool[1:]
+
+        card.total_credits = credits_used
+        semesters.append(card)
+        items_pool = remaining
+        term_idx  += 1
+
+    # ── 8. Prerequisite disclaimer ────────────────────────────────────────────
+
+    warnings.append(
+        "This plan does not verify course prerequisites or semester availability. "
+        "Confirm all prerequisites are met before registering."
+    )
+
+    return GeneratedPlan(
+        semesters=semesters,
+        projected_graduation=semesters[-1].term_label if semesters else "Unknown",
+        warnings=warnings,
     )
