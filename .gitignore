@@ -23,6 +23,7 @@ out/
 .githooks/
 docs/
 subsystems/
+dev-log.md
 
 # OS
 .DS_Store
