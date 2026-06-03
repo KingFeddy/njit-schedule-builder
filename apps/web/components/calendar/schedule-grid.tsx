@@ -1,0 +1,114 @@
+import type { ScheduleResult } from '@/lib/api'
+import { CourseBlock } from './course-block'
+
+const PX_PER_HOUR = 48
+const START_HOUR = 7
+const END_HOUR = 22
+const TOTAL_HOURS = END_HOUR - START_HOUR // 15
+const GRID_HEIGHT = TOTAL_HOURS * PX_PER_HOUR // 720px
+
+const DAY_MAP: Record<string, number> = { M: 0, T: 1, W: 2, R: 3, F: 4 }
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+
+// 16 hour labels: 7am through 10pm inclusive
+const HOUR_MARKS = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => START_HOUR + i)
+// 15 grid-line rows: one per hour slot
+const GRID_ROWS = Array.from({ length: TOTAL_HOURS }, (_, i) => i)
+
+function hourLabel(h: number): string {
+  if (h === 12) return '12:00'
+  return h > 12 ? `${h - 12}:00` : `${h}:00`
+}
+
+interface ScheduleGridProps {
+  result: ScheduleResult | null
+}
+
+export function ScheduleGrid({ result }: ScheduleGridProps) {
+  if (!result) {
+    return (
+      <div className="flex-1 flex items-center justify-center rounded-xl border border-border bg-surface">
+        <p className="text-sm text-muted">Click Solve to generate schedules</p>
+      </div>
+    )
+  }
+
+  // Distribute sections into per-day buckets
+  const daySlots: ScheduleResult['sections'][] = [[], [], [], [], []]
+  for (const slot of result.sections) {
+    if (!slot.days) continue
+    for (const ch of slot.days) {
+      const idx = DAY_MAP[ch]
+      if (idx != null) daySlots[idx].push(slot)
+    }
+  }
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-border bg-surface overflow-hidden">
+      {/* Day header — not sticky inside overflow:hidden, so pinned via flex-shrink-0 */}
+      <div
+        className="flex-shrink-0 grid border-b border-border bg-bg"
+        style={{ gridTemplateColumns: '48px repeat(5, 1fr)' }}
+      >
+        <div />
+        {DAY_LABELS.map((day) => (
+          <div
+            key={day}
+            className="flex items-center justify-center py-1.5 text-xs font-medium uppercase tracking-wider text-muted"
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Scrollable body */}
+      <div className="overflow-y-auto flex-1">
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: '48px repeat(5, 1fr)', height: GRID_HEIGHT }}
+        >
+          {/* Time label column */}
+          <div className="relative border-r border-border" style={{ height: GRID_HEIGHT }}>
+            {HOUR_MARKS.map((h, i) => (
+              <span
+                key={h}
+                className="absolute right-2 text-[10px] font-mono text-faint select-none"
+                style={{ top: i * PX_PER_HOUR, transform: 'translateY(-50%)' }}
+              >
+                {hourLabel(h)}
+              </span>
+            ))}
+          </div>
+
+          {/* Five day columns */}
+          {daySlots.map((slots, colIdx) => (
+            <div
+              key={colIdx}
+              className="relative border-r border-border last:border-r-0"
+              style={{ height: GRID_HEIGHT }}
+            >
+              {/* Hourly and half-hour grid lines */}
+              {GRID_ROWS.map((i) => (
+                <div key={i}>
+                  <div
+                    className="absolute w-full border-t border-border"
+                    style={{ top: i * PX_PER_HOUR }}
+                  />
+                  <div
+                    className="absolute w-full border-t border-border opacity-40"
+                    style={{ top: i * PX_PER_HOUR + PX_PER_HOUR / 2 }}
+                  />
+                </div>
+              ))}
+
+              {/* Course blocks */}
+              {slots.map((slot) => (
+                <CourseBlock key={`${slot.crn}-${colIdx}`} slot={slot} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
