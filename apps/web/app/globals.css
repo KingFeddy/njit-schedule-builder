@@ -1,0 +1,119 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Our design tokens — custom utilities not in shadcn's vocabulary */
+@theme {
+  --color-njit-red:       #D22630;
+  --color-njit-navy:      #071D49;
+  --color-bg:             #0A0A0A;
+  --color-surface:        #111111;
+  --color-surface-2:      #1A1A1A;
+  --color-border-strong:  #3A3A3A;
+  --color-text:           #EDEDED;
+  --color-faint:          #555555;
+  --color-green:          #22C55E;
+  --color-yellow:         #EAB308;
+  --color-red-dim:        #1A0608;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "Cascadia Code", monospace;
+}
+
+/* shadcn semantic tokens → Tailwind utilities (via CSS variables set in :root below) */
+@theme inline {
+  --color-background:           var(--background);
+  --color-foreground:           var(--foreground);
+  --color-card:                 var(--card);
+  --color-card-foreground:      var(--card-foreground);
+  --color-popover:              var(--popover);
+  --color-popover-foreground:   var(--popover-foreground);
+  --color-primary:              var(--primary);
+  --color-primary-foreground:   var(--primary-foreground);
+  --color-secondary:            var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:                var(--muted);
+  --color-muted-foreground:     var(--muted-foreground);
+  --color-accent:               var(--accent);
+  --color-accent-foreground:    var(--accent-foreground);
+  --color-destructive:          var(--destructive);
+  --color-border:               var(--border);
+  --color-input:                var(--input);
+  --color-ring:                 var(--ring);
+  --radius-sm:  calc(var(--radius) * 0.6);
+  --radius-md:  calc(var(--radius) * 0.8);
+  --radius-lg:  var(--radius);
+  --radius-xl:  calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Raw CSS vars for inline style="" access */
+  --njit-red:      #D22630;
+  --njit-navy:     #071D49;
+  --bg:            #0A0A0A;
+  --surface:       #111111;
+  --surface-2:     #1A1A1A;
+  --border-strong: #3A3A3A;
+  --text:          #EDEDED;
+  --text-muted:    #888888;
+  --text-faint:    #555555;
+  --green:         #22C55E;
+  --yellow:        #EAB308;
+  --red-dim:       #1A0608;
+
+  /* shadcn semantic variables mapped to our dark palette */
+  --background:            #0A0A0A;
+  --foreground:            #EDEDED;
+  --card:                  #111111;
+  --card-foreground:       #EDEDED;
+  --popover:               #111111;
+  --popover-foreground:    #EDEDED;
+  --primary:               #D22630;
+  --primary-foreground:    #EDEDED;
+  --secondary:             #1A1A1A;
+  --secondary-foreground:  #EDEDED;
+  --muted:                 #888888;
+  --muted-foreground:      #555555;
+  --accent:                #1A1A1A;
+  --accent-foreground:     #EDEDED;
+  --destructive:           #D22630;
+  --border:                #2A2A2A;
+  --input:                 #1A1A1A;
+  --ring:                  #D22630;
+  --radius:                0.5rem;
+}
+
+/* Same values for .dark class — app is always dark; shadcn components check .dark */
+.dark {
+  --background:            #0A0A0A;
+  --foreground:            #EDEDED;
+  --card:                  #111111;
+  --card-foreground:       #EDEDED;
+  --popover:               #111111;
+  --popover-foreground:    #EDEDED;
+  --primary:               #D22630;
+  --primary-foreground:    #EDEDED;
+  --secondary:             #1A1A1A;
+  --secondary-foreground:  #EDEDED;
+  --muted:                 #888888;
+  --muted-foreground:      #555555;
+  --accent:                #1A1A1A;
+  --accent-foreground:     #EDEDED;
+  --destructive:           #D22630;
+  --border:                #2A2A2A;
+  --input:                 #1A1A1A;
+  --ring:                  #D22630;
+}
+
+html { color-scheme: dark; }
+body { background-color: var(--bg); color: var(--text); }
+
+/* Linear-style thin scrollbar */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
