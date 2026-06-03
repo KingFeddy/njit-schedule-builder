@@ -3,13 +3,16 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
+from dataclasses import asdict
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.dependencies import get_db
 from src.schemas.plan import ParseValidationError, ParsedDegreeValidated
 from src.services.dw_parser import parse_degree_works_regex
-from src.services.plan import validate_parsed_degree
+from src.services.plan import generate_plan, validate_parsed_degree
 
 # Single shared limiter defined once in main.py — never instantiate a second one here
 from main import limiter
@@ -125,3 +128,31 @@ async def parse_degree_works(request: Request, body: ParseRequest) -> ParseRespo
         server_hash=server_hash,
         warnings=warnings,
     )
+
+
+# ── POST /api/plan/generate ───────────────────────────────────────────────────
+
+class GenerateRequest(BaseModel):
+    parsed_degree: dict     # ParsedDegreeValidated serialized to JSON by the client
+    preferences: dict       # {courses: list[str], credits_per_semester: 12|15|18}
+
+
+@router.post("/api/plan/generate")
+@limiter.limit("10/minute")
+async def generate_degree_plan(
+    request: Request,
+    body: GenerateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Stateless plan generation. Accepts a ParsedDegreeValidated (from /api/plan/parse)
+    and student preferences, returns a semester-by-semester plan.
+    Nothing is stored server-side — the client persists the result to localStorage.
+    """
+    try:
+        validated = ParsedDegreeValidated.model_validate(body.parsed_degree)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid parsed degree data: {e}")
+
+    plan = await generate_plan(validated, body.preferences, db)
+    return asdict(plan)
