@@ -3,10 +3,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
+from collections import defaultdict
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dependencies import get_db
@@ -24,6 +26,8 @@ router = APIRouter(tags=["plan"])
 MAX_PDF_BYTES = 5 * 1024 * 1024  # 5 MB
 MIN_PDF_BYTES = 5 * 1024          # 5 KB — DegreeWorks PDFs are never this small
 PDF_MAGIC = b"%PDF-"
+
+GER_PREFIXES = ["COM", "ENG", "HUM", "HIST", "PHIL", "PSYC", "SOC", "STS", "ARH", "MUS"]
 
 
 class ParseRequest(BaseModel):
@@ -156,3 +160,32 @@ async def generate_degree_plan(
 
     plan = await generate_plan(validated, body.preferences, db)
     return asdict(plan)
+
+
+@router.get("/api/plan/ger-courses")
+async def ger_courses(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        text("""
+            SELECT
+                SUBSTRING(course_code FROM '^[A-Z]+') AS prefix,
+                course_code,
+                title
+            FROM courses
+            WHERE SUBSTRING(course_code FROM '^[A-Z]+') = ANY(:prefixes)
+            ORDER BY course_code
+        """),
+        {"prefixes": GER_PREFIXES},
+    )
+    rows = result.mappings().all()
+
+    groups: defaultdict[str, list] = defaultdict(list)
+    for row in rows:
+        groups[row["prefix"]].append({"code": row["course_code"], "title": row["title"]})
+
+    return {
+        "groups": [
+            {"prefix": p, "courses": groups[p]}
+            for p in GER_PREFIXES
+            if groups.get(p)
+        ]
+    }
