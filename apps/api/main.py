@@ -133,3 +133,9 @@ async def version():
         "env": settings.APP_ENV,
         "term": settings.CURRENT_TERM,
     }
+
+
+# Routers — imported after `limiter` is defined above so the circular import
+# (`from main import limiter` inside the router) resolves correctly.
+from src.routers.schedule import router as schedule_router  # noqa: E402
+app.include_router(schedule_router)
