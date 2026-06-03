@@ -84,8 +84,8 @@ export function ProfessorModal({ professorName, courseCode, onClose }: Professor
               {loading ? (
                 <div className="h-6 w-20 rounded bg-surface-2 animate-pulse" />
               ) : (
-                <p className={`font-mono text-xl ${ratingColor(prof?.rmp_score ?? 0)}`}>
-                  ★{' '}
+                <p className={`flex items-center gap-1.5 font-mono text-xl ${ratingColor(prof?.rmp_score ?? 0)}`}>
+                  <Star className="w-5 h-5 flex-shrink-0" />
                   {prof?.rmp_score != null ? (
                     <>
                       {prof.rmp_score.toFixed(1)}
@@ -104,8 +104,8 @@ export function ProfessorModal({ professorName, courseCode, onClose }: Professor
               {loading ? (
                 <div className="h-6 w-20 rounded bg-surface-2 animate-pulse" />
               ) : (
-                <p className={`font-mono text-xl ${difficultyColor(prof?.rmp_difficulty ?? 0)}`}>
-                  ⚡{' '}
+                <p className={`flex items-center gap-1.5 font-mono text-xl ${difficultyColor(prof?.rmp_difficulty ?? 0)}`}>
+                  <Zap className="w-5 h-5 flex-shrink-0" />
                   {prof?.rmp_difficulty != null ? (
                     <>
                       {prof.rmp_difficulty.toFixed(1)}
