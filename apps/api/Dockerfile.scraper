@@ -8,7 +8,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 RUN uv run playwright install-deps chromium
-RUN uv run playwright install chromium
+RUN PLAYWRIGHT_BROWSERS_PATH=/app/playwright-browsers uv run playwright install chromium
 
 COPY . .
 CMD ["uv", "run", "python", "-m", "src.scrapers.cron"]
