@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, Star, Zap } from 'lucide-react'
+import { X, Star, Flame } from 'lucide-react'
 import { getProfessor, type ProfessorResponse } from '@/lib/api'
 import { useSchedulerStore } from '@/store/scheduler'
 import { VibeCheckPill } from '@/components/ui/vibe-check-pill'
@@ -113,7 +113,7 @@ export function ProfessorModal({ professorName, courseCode, onClose }: Professor
                 <div className="h-6 w-20 rounded bg-surface-2 animate-pulse" />
               ) : (
                 <p className={`flex items-center gap-1.5 font-mono text-xl ${difficultyColor(prof?.rmp_difficulty ?? 0)}`}>
-                  <Zap className="w-5 h-5 flex-shrink-0" />
+                  <Flame className="w-5 h-5 flex-shrink-0" />
                   {prof?.rmp_difficulty != null ? (
                     <>
                       {prof.rmp_difficulty.toFixed(1)}

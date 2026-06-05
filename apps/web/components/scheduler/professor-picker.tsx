@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Check, Star, Zap } from 'lucide-react'
+import { ChevronDown, Check, Star, Flame } from 'lucide-react'
 import { useSchedulerStore } from '@/store/scheduler'
 import { ProfessorModal } from './professor-modal'
 
@@ -186,7 +186,7 @@ export function ProfessorPicker({ courseCode }: ProfessorPickerProps) {
                         {r?.rmp_score != null ? r.rmp_score.toFixed(1) : 'N/A'}
                       </span>
                       <span className={`inline-flex items-center gap-0.5 text-xs font-mono ${dc}`}>
-                        <Zap className="w-2.5 h-2.5" />
+                        <Flame className="w-2.5 h-2.5" />
                         {r?.rmp_difficulty != null ? r.rmp_difficulty.toFixed(1) : 'N/A'}
                       </span>
                     </div>
