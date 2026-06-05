@@ -61,8 +61,8 @@ export function ScheduleGrid({ result }: ScheduleGridProps) {
         ))}
       </div>
 
-      {/* Scrollable body */}
-      <div className="overflow-y-auto flex-1">
+      {/* Scrollable body — pt-3 gives the 7:00 label room above y=0 so translateY(-50%) doesn't clip */}
+      <div className="overflow-y-auto flex-1 pt-3">
         <div
           className="grid"
           style={{ gridTemplateColumns: '48px repeat(5, 1fr)', height: GRID_HEIGHT }}
