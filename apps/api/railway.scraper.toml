@@ -3,5 +3,5 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile.scraper"
 
 [deploy]
-startCommand = "echo 'Scraper runs on cron only'"
+startCommand = "uv run python -m src.scrapers.cron"
 restartPolicyType = "NEVER"
