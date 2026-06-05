@@ -141,9 +141,22 @@ async def _fetch_page(
 
     body = await response.text()
     try:
-        return json.loads(body)
+        data = json.loads(body)
     except json.JSONDecodeError as exc:
         raise BannerBlockedError(f"Banner returned non-JSON body: {exc}") from exc
+
+    # Log the top-level keys and 'data' field type so we can diagnose null responses
+    # and term availability without having to decode the full payload.
+    data_field = data.get("data")
+    logger.debug(
+        "_fetch_page: status=%s keys=%s data_type=%s totalCount=%s success=%s",
+        response.status,
+        list(data.keys()) if isinstance(data, dict) else type(data).__name__,
+        type(data_field).__name__,
+        data.get("totalCount"),
+        data.get("success"),
+    )
+    return data
 
 
 # ─── Section upsert ───────────────────────────────────────────────────────────
@@ -323,8 +336,18 @@ async def scrape_subject(
                     logger.error("Banner/%s: exhausted retries at offset %d", subject, offset)
                     break
 
-                sections = page_data.get("data", [])
-                total    = page_data.get("totalCount", 0)
+                # Use `or []` not `get("data", [])` — Banner returns `"data": null`
+                # for terms with no sections, and get(key, default) only uses the
+                # default when the key is absent, not when its value is null.
+                sections = page_data.get("data") or []
+                total    = page_data.get("totalCount") or 0
+
+                if page_data.get("data") is None:
+                    logger.warning(
+                        "Banner/%s: 'data' field is null at offset %d "
+                        "(totalCount=%s, success=%s) — term may have no sections yet",
+                        subject, offset, page_data.get("totalCount"), page_data.get("success"),
+                    )
 
                 for raw in sections:
                     try:
