@@ -6,6 +6,7 @@ const START_HOUR = 7
 const END_HOUR = 22
 const TOTAL_HOURS = END_HOUR - START_HOUR // 15
 const GRID_HEIGHT = TOTAL_HOURS * PX_PER_HOUR // 720px — used for all position math
+const GRID_DISPLAY_HEIGHT = GRID_HEIGHT + PX_PER_HOUR / 2 // 744px — extends to 10:30pm closing line
 
 const DAY_MAP: Record<string, number> = { M: 0, T: 1, W: 2, R: 3, F: 4 }
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -64,11 +65,11 @@ export function ScheduleGrid({ result }: ScheduleGridProps) {
       {/* Scrollable body — pt-3 gives the 7:00 label room above y=0 so translateY(-50%) doesn't clip */}
       <div className="overflow-y-auto flex-1 pt-3">
         <div
-          className="grid border-b border-border"
-          style={{ gridTemplateColumns: '48px repeat(5, 1fr)', height: GRID_HEIGHT }}
+          className="grid"
+          style={{ gridTemplateColumns: '48px repeat(5, 1fr)', height: GRID_DISPLAY_HEIGHT }}
         >
           {/* Time label column */}
-          <div className="relative border-r border-border" style={{ height: GRID_HEIGHT }}>
+          <div className="relative border-r border-border" style={{ height: GRID_DISPLAY_HEIGHT }}>
             {HOUR_MARKS.map((h, i) => (
               <span
                 key={h}
@@ -85,7 +86,7 @@ export function ScheduleGrid({ result }: ScheduleGridProps) {
             <div
               key={colIdx}
               className="relative border-r border-border last:border-r-0"
-              style={{ height: GRID_HEIGHT }}
+              style={{ height: GRID_DISPLAY_HEIGHT }}
             >
               {/* Hourly and half-hour grid lines */}
               {GRID_ROWS.map((i) => (
@@ -94,12 +95,10 @@ export function ScheduleGrid({ result }: ScheduleGridProps) {
                     className="absolute w-full border-t border-border"
                     style={{ top: i * PX_PER_HOUR }}
                   />
-                  {i < TOTAL_HOURS && (
-                    <div
-                      className="absolute w-full border-t border-border opacity-40"
-                      style={{ top: i * PX_PER_HOUR + PX_PER_HOUR / 2 }}
-                    />
-                  )}
+                  <div
+                    className="absolute w-full border-t border-border opacity-40"
+                    style={{ top: i * PX_PER_HOUR + PX_PER_HOUR / 2 }}
+                  />
                 </div>
               ))}
 
