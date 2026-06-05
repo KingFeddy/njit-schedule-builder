@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import { useSchedulerStore } from '@/store/scheduler'
-import { solveShedule } from '@/lib/api'
+import { solveShedule, getProfessor, type ProfessorResponse } from '@/lib/api'
 import { useScraperStatus } from '@/hooks/useScraperStatus'
 import { CourseSelector } from '@/components/scheduler/course-selector'
 import { CommuterToggles } from '@/components/scheduler/commuter-toggles'
@@ -23,6 +23,7 @@ export default function SchedulerPage() {
     setLoading,
     setResults,
     setError,
+    setProfessorCache,
   } = useSchedulerStore()
 
   async function handleSolve() {
@@ -43,6 +44,25 @@ export default function SchedulerPage() {
         top_n: 50,
       })
       setResults(res.results, res.warnings)
+
+      // Prefetch RMP data for every professor in the results so the modal
+      // opens instantly instead of waiting for an on-demand fetch.
+      const names = [
+        ...new Set(
+          res.results
+            .flatMap((r) => r.sections.map((s) => s.professor_name))
+            .filter(Boolean),
+        ),
+      ] as string[]
+      if (names.length > 0) {
+        Promise.all(
+          names.map((n) =>
+            getProfessor(n).then((data) => [n, data] as [string, ProfessorResponse | null]),
+          ),
+        )
+          .then((entries) => setProfessorCache(Object.fromEntries(entries)))
+          .catch(() => {})
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to solve schedule')
     } finally {

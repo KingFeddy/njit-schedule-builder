@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { X, Star, Zap } from 'lucide-react'
 import { getProfessor, type ProfessorResponse } from '@/lib/api'
+import { useSchedulerStore } from '@/store/scheduler'
 import { VibeCheckPill } from '@/components/ui/vibe-check-pill'
 
 interface ProfessorModalProps {
@@ -30,11 +31,18 @@ function difficultyColor(score: number): string {
 }
 
 export function ProfessorModal({ professorName, courseCode, onClose }: ProfessorModalProps) {
-  const [data, setData] = useState<ProfessorResponse | null | 'loading'>('loading')
+  const professorCache = useSchedulerStore((s) => s.professorCache)
+
+  // Initialize from cache synchronously — eliminates the loading flash when
+  // the modal opens after a solve (prefetch already populated the cache).
+  const [data, setData] = useState<ProfessorResponse | null | 'loading'>(() =>
+    professorName in professorCache ? professorCache[professorName] : 'loading',
+  )
 
   useEffect(() => {
+    if (professorName in professorCache) return
     getProfessor(professorName).then(setData)
-  }, [professorName])
+  }, [professorName, professorCache])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

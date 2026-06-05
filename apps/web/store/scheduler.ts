@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { ScheduleResult } from '@/lib/api'
+import type { ProfessorResponse, ScheduleResult } from '@/lib/api'
 
 export interface CommuterOptions {
   blocked_days: string[]
@@ -29,6 +29,7 @@ interface SchedulerState {
   isLoading: boolean
   error: string | null
   solveWarnings: string[]
+  professorCache: Record<string, ProfessorResponse | null>
 
   // actions
   addCourse: (code: string) => void
@@ -40,6 +41,7 @@ interface SchedulerState {
   setResults: (results: ScheduleResult[], warnings: string[]) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  setProfessorCache: (entries: Record<string, ProfessorResponse | null>) => void
 }
 
 const safeStorage = {
@@ -69,6 +71,7 @@ export const useSchedulerStore = create<SchedulerState>()(
       isLoading: false,
       error: null,
       solveWarnings: [],
+      professorCache: {},
 
       // actions
       addCourse: (code) =>
@@ -108,6 +111,9 @@ export const useSchedulerStore = create<SchedulerState>()(
       setLoading: (isLoading) => set({ isLoading }),
 
       setError: (error) => set({ error }),
+
+      setProfessorCache: (entries) =>
+        set((s) => ({ professorCache: { ...s.professorCache, ...entries } })),
     }),
     {
       name: 'njit-scheduler',
