@@ -49,24 +49,30 @@ async def search_courses(
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseResponse]:
     offset = (page - 1) * limit
-    q_pattern = f"%{q}%" if q else None
-    subject_prefix = f"{subject.upper()}%" if subject else None
+
+    conditions = []
+    params: dict = {"limit": limit, "offset": offset}
+
+    if q:
+        q_pattern = f"%{q}%"
+        conditions.append("(course_code ILIKE :q_pattern OR title ILIKE :q_pattern)")
+        params["q_pattern"] = q_pattern
+
+    if subject:
+        conditions.append("course_code ILIKE :subject_prefix")
+        params["subject_prefix"] = f"{subject.upper()}%"
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
     result = await db.execute(
-        text("""
+        text(f"""
             SELECT course_code, title, credits
             FROM courses
-            WHERE (:q_pattern IS NULL OR course_code ILIKE :q_pattern OR title ILIKE :q_pattern)
-              AND (:subject_prefix IS NULL OR course_code ILIKE :subject_prefix)
+            {where}
             ORDER BY course_code
             LIMIT :limit OFFSET :offset
         """),
-        {
-            "q_pattern": q_pattern,
-            "subject_prefix": subject_prefix,
-            "limit": limit,
-            "offset": offset,
-        },
+        params,
     )
     rows = result.mappings().all()
     return [
