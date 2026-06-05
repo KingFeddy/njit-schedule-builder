@@ -63,7 +63,7 @@ export const useSchedulerStore = create<SchedulerState>()(
     (set) => ({
       // persisted defaults
       selectedCourses: [],
-      term: '202690',
+      term: '202510',
       commuterOptions: defaultCommuterOptions,
       professorPreferences: {},
       activeResultIndex: 0,
