@@ -8,7 +8,8 @@ import { CourseCodePill } from '@/components/ui/course-code-pill'
 import { ProfessorPicker } from './professor-picker'
 
 export function CourseSelector() {
-  const { selectedCourses, term, addCourse, removeCourse, setProfessorCache } = useSchedulerStore()
+  const { selectedCourses, term, addCourse, removeCourse, setProfessorCache, setProfessorsByCourse } =
+    useSchedulerStore()
 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<CourseResponse[]>([])
@@ -17,6 +18,8 @@ export function CourseSelector() {
 
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Tracks which course+term combos have had a prefetch initiated this session
+  const prefetchingRef = useRef(new Set<string>())
 
   // Debounced search — 300ms
   useEffect(() => {
@@ -40,6 +43,32 @@ export function CourseSelector() {
     return () => clearTimeout(t)
   }, [query])
 
+  // Prefetch professor list + RMP for every selected course.
+  // Fires on mount (picks up persisted courses) and whenever selectedCourses or term changes.
+  // prefetchingRef prevents duplicate in-flight requests.
+  useEffect(() => {
+    for (const code of selectedCourses) {
+      const key = `${code}:${term}`
+      if (prefetchingRef.current.has(key)) continue
+      prefetchingRef.current.add(key)
+      getCoursesSections(code, term)
+        .then((sections) => {
+          const names = [
+            ...new Set(sections.map((s) => s.professor_name).filter(Boolean)),
+          ] as string[]
+          setProfessorsByCourse(code, names)
+          if (names.length === 0) return
+          Promise.all(
+            names.map((n) =>
+              getProfessor(n).then((data) => [n, data] as [string, ProfessorResponse | null]),
+            ),
+          ).then((entries) => setProfessorCache(Object.fromEntries(entries)))
+        })
+        .catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourses, term])
+
   // Close dropdown on outside click
   useEffect(() => {
     function onDown(e: MouseEvent) {
@@ -57,22 +86,7 @@ export function CourseSelector() {
     setResults([])
     setShowDropdown(false)
     inputRef.current?.focus()
-
-    // Prefetch RMP data for all professors teaching this course so the
-    // professor picker and modal render instantly without a loading state.
-    getCoursesSections(code, term)
-      .then((sections) => {
-        const names = [
-          ...new Set(sections.map((s) => s.professor_name).filter(Boolean)),
-        ] as string[]
-        if (names.length === 0) return
-        Promise.all(
-          names.map((n) =>
-            getProfessor(n).then((data) => [n, data] as [string, ProfessorResponse | null]),
-          ),
-        ).then((entries) => setProfessorCache(Object.fromEntries(entries)))
-      })
-      .catch(() => {})
+    // Prefetch is kicked off by the useEffect above when selectedCourses updates
   }
 
   return (
@@ -128,7 +142,7 @@ export function CourseSelector() {
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <ProfessorPicker courseCode={code} term={term} />
+              <ProfessorPicker courseCode={code} />
             </li>
           ))}
         </ul>

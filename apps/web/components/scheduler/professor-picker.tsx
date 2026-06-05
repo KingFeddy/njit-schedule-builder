@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Check, Star, Zap } from 'lucide-react'
-import { getCoursesSections, getProfessor, type ProfessorResponse } from '@/lib/api'
 import { useSchedulerStore } from '@/store/scheduler'
 import { ProfessorModal } from './professor-modal'
 
@@ -79,47 +78,23 @@ function difficultyColor(score: number): string {
 
 interface ProfessorPickerProps {
   courseCode: string
-  term: string
 }
 
-export function ProfessorPicker({ courseCode, term }: ProfessorPickerProps) {
-  const { professorPreferences, setProfessorPreferences } = useSchedulerStore()
+export function ProfessorPicker({ courseCode }: ProfessorPickerProps) {
+  const {
+    professorPreferences,
+    setProfessorPreferences,
+    professorsByCourse,
+    professorCache,
+  } = useSchedulerStore()
+
   const selected = professorPreferences[courseCode] ?? []
+  // undefined = prefetch not yet complete; [] = completed but no professors found
+  const professors = professorsByCourse[courseCode]
 
   const [open, setOpen] = useState(false)
-  const [professors, setProfessors] = useState<string[]>([])
-  const [ratings, setRatings] = useState<Record<string, ProfessorResponse | null>>({})
-  const [sectionsLoading, setSectionsLoading] = useState(false)
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const loadedRef = useRef<Set<string>>(new Set())
-
-  // Load sections (professor list) once on first open
-  useEffect(() => {
-    if (!open || professors.length > 0) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSectionsLoading(true)
-    getCoursesSections(courseCode, term)
-      .then((sections) => {
-        const names = [
-          ...new Set(sections.map((s) => s.professor_name).filter(Boolean)),
-        ] as string[]
-        setProfessors(names)
-      })
-      .catch(() => {})
-      .finally(() => setSectionsLoading(false))
-  }, [open, courseCode, term, professors.length])
-
-  // Load ratings for any new professors
-  useEffect(() => {
-    professors.forEach((name) => {
-      if (loadedRef.current.has(name)) return
-      loadedRef.current.add(name)
-      getProfessor(name).then((data) => {
-        setRatings((prev) => ({ ...prev, [name]: data }))
-      })
-    })
-  }, [professors])
 
   // Close on outside click
   useEffect(() => {
@@ -169,7 +144,7 @@ export function ProfessorPicker({ courseCode, term }: ProfessorPickerProps) {
 
       {open && (
         <div className="absolute z-50 w-64 top-full mt-1 rounded-lg border border-border bg-surface overflow-hidden">
-          {sectionsLoading ? (
+          {professors === undefined ? (
             <div className="px-3 py-2.5 text-xs text-muted">Loading professors…</div>
           ) : professors.length === 0 ? (
             <div className="px-3 py-2.5 text-xs text-muted">No sections found</div>
@@ -177,7 +152,7 @@ export function ProfessorPicker({ courseCode, term }: ProfessorPickerProps) {
             <div className="overflow-y-auto max-h-52">
               {professors.map((name) => {
                 const checked = selected.includes(name)
-                const r = ratings[name]
+                const r = professorCache[name]
                 const rc = r?.rmp_score != null ? ratingColor(r.rmp_score) : 'text-faint'
                 const dc =
                   r?.rmp_difficulty != null ? difficultyColor(r.rmp_difficulty) : 'text-faint'
@@ -201,7 +176,7 @@ export function ProfessorPicker({ courseCode, term }: ProfessorPickerProps) {
                     {/* Name with overflow fade + slow hover scroll */}
                     <ProfessorNameCell name={name} onOpenModal={() => openModal(name)} />
 
-                    {/* Ratings */}
+                    {/* Ratings — read from store cache, already populated by CourseSelector prefetch */}
                     <div
                       className="flex items-center gap-1.5 flex-shrink-0"
                       style={{ width: '6rem' }}

@@ -30,6 +30,7 @@ interface SchedulerState {
   error: string | null
   solveWarnings: string[]
   professorCache: Record<string, ProfessorResponse | null>
+  professorsByCourse: Record<string, string[]>
 
   // actions
   addCourse: (code: string) => void
@@ -42,6 +43,7 @@ interface SchedulerState {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setProfessorCache: (entries: Record<string, ProfessorResponse | null>) => void
+  setProfessorsByCourse: (code: string, profs: string[]) => void
 }
 
 const safeStorage = {
@@ -72,6 +74,7 @@ export const useSchedulerStore = create<SchedulerState>()(
       error: null,
       solveWarnings: [],
       professorCache: {},
+      professorsByCourse: {},
 
       // actions
       addCourse: (code) =>
@@ -114,6 +117,9 @@ export const useSchedulerStore = create<SchedulerState>()(
 
       setProfessorCache: (entries) =>
         set((s) => ({ professorCache: { ...s.professorCache, ...entries } })),
+
+      setProfessorsByCourse: (code, profs) =>
+        set((s) => ({ professorsByCourse: { ...s.professorsByCourse, [code]: profs } })),
     }),
     {
       name: 'njit-scheduler',
