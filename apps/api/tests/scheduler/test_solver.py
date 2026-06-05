@@ -107,8 +107,8 @@ class TestSolverCorrectness:
         s1 = section("A", "CS101", [make_meeting("MW", "10:00", "11:20")])
         s2 = section("B", "CS101", [make_meeting("TR", "10:00", "11:20")])
         result = solve(["CS101"], {"CS101": [s1, s2]}, no_constraints, {})
-        assert result.schedules
-        crns = {sch.sections[0].crn for sch in result.schedules}
+        assert result.results
+        crns = {sch.sections[0].crn for sch in result.results}
         assert "A" in crns and "B" in crns
 
     def test_compatible_courses_produce_schedule(self):
@@ -116,7 +116,7 @@ class TestSolverCorrectness:
         mw = section("A", "CS101", [make_meeting("MW", "10:00", "11:20")])
         tr = section("B", "CS201", [make_meeting("TR", "10:00", "11:20")])
         result = solve(["CS101", "CS201"], {"CS101": [mw], "CS201": [tr]}, no_constraints, {})
-        assert len(result.schedules) == 1
+        assert len(result.results) == 1
         assert not result.warnings
 
     def test_impossible_combination_returns_empty_with_named_pair(self):
@@ -124,7 +124,7 @@ class TestSolverCorrectness:
         s1 = section("A", "CS101", [make_meeting("MW", "10:00", "11:20")])
         s2 = section("B", "CS201", [make_meeting("MW", "10:00", "11:20")])
         result = solve(["CS101", "CS201"], {"CS101": [s1], "CS201": [s2]}, no_constraints, {})
-        assert result.schedules == []
+        assert result.results == []
         assert any("CS101" in w and "CS201" in w for w in result.warnings), \
             "Warning must name the specific conflicting pair"
 
@@ -132,7 +132,7 @@ class TestSolverCorrectness:
         """Unknown course code → empty result with course-specific warning."""
         cs101 = section("A", "CS101", [make_meeting("MW", "10:00", "10:50")])
         result = solve(["CS101", "CS999"], {"CS101": [cs101], "CS999": []}, no_constraints, {})
-        assert result.schedules == []
+        assert result.results == []
         assert any("CS999" in w for w in result.warnings)
 
     def test_minimize_gaps_true_ranks_lower_gap_first(self):
@@ -148,7 +148,7 @@ class TestSolverCorrectness:
         )
         # Schedule containing A (ends 11:20, 10 min gap to CS201 at 11:30) ranks first
         # Schedule containing B (ends 09:20, ~2h10m gap) ranks second
-        first_crns = {s.crn for s in result.schedules[0].sections}
+        first_crns = {s.crn for s in result.results[0].sections}
         assert "A" in first_crns, "Back-to-back schedule must rank first when minimize_gaps=True"
 
     def test_minimize_gaps_false_ranks_fewer_campus_days_first(self):
@@ -163,7 +163,7 @@ class TestSolverCorrectness:
             {},
         )
         # TR+TR = 2 campus days; MWF+TR = 4 campus days
-        first_crns = {s.crn for s in result.schedules[0].sections}
+        first_crns = {s.crn for s in result.results[0].sections}
         assert "B" in first_crns, "TR-only schedule (2 campus days) must rank first"
 
 
@@ -175,7 +175,7 @@ class TestProfessorWhitelist:
         smith = section("A", "CS101", [make_meeting("MW", "10:00", "11:20")], prof="Dr. Smith")
         jones = section("B", "CS101", [make_meeting("TR", "10:00", "11:20")], prof="Dr. Jones")
         result = solve(["CS101"], {"CS101": [smith, jones]}, no_constraints, {"CS101": ["Dr. Smith"]})
-        crns = {sch.sections[0].crn for sch in result.schedules}
+        crns = {sch.sections[0].crn for sch in result.results}
         assert "A" in crns and "B" not in crns
 
     def test_whitelist_match_is_case_insensitive(self):
@@ -191,7 +191,7 @@ class TestProfessorWhitelist:
         """Warning must name the missing professor, not just the course."""
         s = section("A", "CS101", [make_meeting("MW", "10:00", "11:20")], prof="Dr. Smith")
         result = solve(["CS101"], {"CS101": [s]}, no_constraints, {"CS101": ["Dr. Nobody"]})
-        assert result.schedules == []
+        assert result.results == []
         assert any("Dr. Nobody" in w or "CS101" in w for w in result.warnings)
 
 
@@ -209,7 +209,7 @@ class TestCommuterConstraints:
             ["MATH340"], {"MATH340": [math340]},
             CommuterOptions(blocked_days=["F"]), {},
         )
-        assert result.schedules == []
+        assert result.results == []
         assert result.warnings
 
     def test_async_section_passes_all_constraints(self):
@@ -224,7 +224,7 @@ class TestCommuterConstraints:
             ),
             {},
         )
-        assert result.schedules
+        assert result.results
 
 
 # ── TestPostSolveValidation ───────────────────────────────────────────────────
@@ -254,7 +254,7 @@ class TestPostSolveValidation:
             {},
         )
 
-        assert result.schedules == [], \
+        assert result.results == [], \
             "validate_schedule must discard conflicting schedules as an independent safety net"
 
 
