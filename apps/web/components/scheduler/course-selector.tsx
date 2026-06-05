@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
-import { getCourses, type CourseResponse } from '@/lib/api'
+import { getCourses, getCoursesSections, getProfessor, type CourseResponse, type ProfessorResponse } from '@/lib/api'
 import { useSchedulerStore } from '@/store/scheduler'
 import { CourseCodePill } from '@/components/ui/course-code-pill'
 import { ProfessorPicker } from './professor-picker'
 
 export function CourseSelector() {
-  const { selectedCourses, term, addCourse, removeCourse } = useSchedulerStore()
+  const { selectedCourses, term, addCourse, removeCourse, setProfessorCache } = useSchedulerStore()
 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<CourseResponse[]>([])
@@ -57,6 +57,22 @@ export function CourseSelector() {
     setResults([])
     setShowDropdown(false)
     inputRef.current?.focus()
+
+    // Prefetch RMP data for all professors teaching this course so the
+    // professor picker and modal render instantly without a loading state.
+    getCoursesSections(code, term)
+      .then((sections) => {
+        const names = [
+          ...new Set(sections.map((s) => s.professor_name).filter(Boolean)),
+        ] as string[]
+        if (names.length === 0) return
+        Promise.all(
+          names.map((n) =>
+            getProfessor(n).then((data) => [n, data] as [string, ProfessorResponse | null]),
+          ),
+        ).then((entries) => setProfessorCache(Object.fromEntries(entries)))
+      })
+      .catch(() => {})
   }
 
   return (
