@@ -131,7 +131,7 @@ export function ProfessorModal({ professorName, courseCode, onClose }: Professor
           {!loading && (prof?.rmp_would_take_again != null || prof?.rmp_num_ratings != null) && (
             <p className="text-xs text-muted">
               {prof.rmp_would_take_again != null && (
-                <span>Would take again: {prof.rmp_would_take_again}%&nbsp;&nbsp;</span>
+                <span>Would take again: {Math.round(prof.rmp_would_take_again)}%&nbsp;&nbsp;</span>
               )}
               {prof.rmp_num_ratings != null && (
                 <span>Based on {prof.rmp_num_ratings} ratings</span>
