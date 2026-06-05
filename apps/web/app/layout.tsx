@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { SidebarNav } from '@/components/layout/sidebar-nav'
 import './globals.css'
 
 const geistSans = Geist({
@@ -25,7 +26,14 @@ export default function RootLayout({
       lang="en"
       className={`dark ${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="bg-bg text-text antialiased">{children}</body>
+      <body className="bg-bg text-text antialiased">
+        <div className="flex h-screen overflow-hidden">
+          <SidebarNav />
+          <div className="flex-1 flex flex-col overflow-y-auto">
+            {children}
+          </div>
+        </div>
+      </body>
     </html>
   )
 }
