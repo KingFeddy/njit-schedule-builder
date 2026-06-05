@@ -97,6 +97,7 @@ export function ProfessorPicker({ courseCode, term }: ProfessorPickerProps) {
   // Load sections (professor list) once on first open
   useEffect(() => {
     if (!open || professors.length > 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSectionsLoading(true)
     getCoursesSections(courseCode, term)
       .then((sections) => {

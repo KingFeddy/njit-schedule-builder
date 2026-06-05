@@ -29,6 +29,7 @@ export function PreferencesForm({ parsed, onPlanGenerated, onBrowseGer }: Prefer
       const saved = localStorage.getItem('njit-dw-preferences')
       if (saved) {
         const prefs = JSON.parse(saved) as { courses: string[]; creditsPerSemester: number }
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCourses(prefs.courses || [])
         setCreditsPerSemester(prefs.creditsPerSemester || 15)
       }

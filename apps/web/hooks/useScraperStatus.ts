@@ -24,6 +24,7 @@ export function useScraperStatus() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkStatus()
     const interval = setInterval(checkStatus, POLL_INTERVAL_MS)
     return () => clearInterval(interval)

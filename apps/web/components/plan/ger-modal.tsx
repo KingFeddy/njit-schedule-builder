@@ -21,6 +21,7 @@ export function GerModal({ isOpen, courseCode, onClose, onSwap }: GerModalProps)
 
   useEffect(() => {
     if (!isOpen) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setQuery('')
     setLoading(true)
     setError(null)
@@ -60,7 +61,7 @@ export function GerModal({ isOpen, courseCode, onClose, onSwap }: GerModalProps)
   function toggleGroup(prefix: string) {
     setExpanded((prev) => {
       const next = new Set(prev)
-      next.has(prefix) ? next.delete(prefix) : next.add(prefix)
+      if (next.has(prefix)) { next.delete(prefix) } else { next.add(prefix) }
       return next
     })
   }

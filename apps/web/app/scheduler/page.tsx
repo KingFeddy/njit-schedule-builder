@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import { useSchedulerStore } from '@/store/scheduler'
 import { solveShedule } from '@/lib/api'
@@ -52,11 +53,12 @@ export default function SchedulerPage() {
   const { lastScrape, isStale } = useScraperStatus()
   const activeResult = results[activeResultIndex] ?? null
 
-  function staleBannerText(): string {
+  const staleBannerText = useMemo(() => {
     if (!lastScrape) return 'Seat availability data age is unknown — verify open seats in Banner before registering.'
+    // eslint-disable-next-line react-hooks/purity
     const ageMin = Math.round((Date.now() - lastScrape.getTime()) / 60_000)
     return `Seat availability data is ${ageMin} min old — verify open seats in Banner before registering.`
-  }
+  }, [lastScrape])
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -109,7 +111,7 @@ export default function SchedulerPage() {
         {isStale && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-surface-2 text-xs text-yellow">
             <TriangleAlert className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>{staleBannerText()}</span>
+            <span>{staleBannerText}</span>
           </div>
         )}
         {results.length > 0 && <ResultNavigator />}

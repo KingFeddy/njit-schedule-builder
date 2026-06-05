@@ -22,6 +22,7 @@ export function CourseSelector() {
   useEffect(() => {
     const trimmed = query.trim()
     if (!trimmed) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults([])
       setShowDropdown(false)
       return

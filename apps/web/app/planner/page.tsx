@@ -35,6 +35,7 @@ export default function PlannerPage() {
     try {
       const raw = localStorage.getItem('njit-dw-parsed')
       if (raw) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setParsed(JSON.parse(raw) as ParsedDegreeValidated)
         setLoadedFromCache(true)
       }
