@@ -80,14 +80,28 @@ class SectionResponse(BaseModel):
     meetings:       list[MeetingResponse]
 
 
+class SolveSectionResponse(BaseModel):
+    crn:            str
+    term:           str
+    course_code:    str
+    professor_name: str | None
+    total_seats:    int
+    open_seats:     int
+    scraped_at:     str | None
+    days:           str | None
+    start_time:     str | None
+    end_time:       str | None
+    location:       str | None
+
+
 class ScheduleResult(BaseModel):
-    sections:           list[SectionResponse]
+    sections:           list[SolveSectionResponse]
     gap_minutes:        int
     campus_days:        int
     has_async_sections: bool
 
 
 class SolveResponse(BaseModel):
-    schedules: list[ScheduleResult]
+    results:   list[ScheduleResult]
     warnings:  list[str]
     truncated: bool

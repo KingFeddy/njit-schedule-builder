@@ -19,8 +19,7 @@ from ..schemas.schedule import (
     CommuterOptions,
     SolveResponse,
     ScheduleResult,
-    SectionResponse,
-    MeetingResponse,
+    SolveSectionResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,23 +80,23 @@ def _build_filter_warning(
 
 # ── Serialisation ─────────────────────────────────────────────────────────────
 
-def _section_to_response(section: SectionSlot) -> SectionResponse:
-    return SectionResponse(
+def _section_to_response(section: SectionSlot) -> SolveSectionResponse:
+    primary = next(
+        (m for m in section.meetings if m.start_time is not None),
+        section.meetings[0] if section.meetings else None,
+    )
+    return SolveSectionResponse(
         crn=section.crn,
+        term=section.term,
         course_code=section.course_code,
         professor_name=section.professor_name,
         total_seats=section.total_seats,
         open_seats=section.open_seats,
         scraped_at=section.scraped_at.isoformat() if section.scraped_at else None,
-        meetings=[
-            MeetingResponse(
-                days=m.days,
-                start_time=m.start_time.strftime("%H:%M") if m.start_time else None,
-                end_time=m.end_time.strftime("%H:%M") if m.end_time else None,
-                location=m.location,
-            )
-            for m in section.meetings
-        ],
+        days=primary.days if primary else None,
+        start_time=primary.start_time.strftime("%H:%M") if primary and primary.start_time else None,
+        end_time=primary.end_time.strftime("%H:%M") if primary and primary.end_time else None,
+        location=primary.location if primary else None,
     )
 
 
@@ -213,7 +212,7 @@ def solve(
             warnings.append(
                 _build_filter_warning(code, all_secs, after_prof, after_commuter, prof_whitelist)
             )
-            return SolveResponse(schedules=[], warnings=warnings, truncated=False)
+            return SolveResponse(results=[], warnings=warnings, truncated=False)
 
         candidates[code] = after_commuter
 
@@ -249,7 +248,7 @@ def solve(
             )
         else:
             warnings.append("No valid schedules found.")
-        return SolveResponse(schedules=[], warnings=warnings, truncated=truncated)
+        return SolveResponse(results=[], warnings=warnings, truncated=truncated)
 
     # ── Phase 4: Rank ──────────────────────────────────────────────────────
     def _rank_key(sections: list[SectionSlot]) -> tuple:
@@ -265,7 +264,7 @@ def solve(
     top_results = raw_results[:MAX_RESULTS]
 
     # ── Phase 5: Serialise ─────────────────────────────────────────────────
-    schedules = [
+    results = [
         ScheduleResult(
             sections=[_section_to_response(s) for s in section_list],
             gap_minutes=compute_gap_minutes(section_list),
@@ -275,7 +274,7 @@ def solve(
         for section_list in top_results
     ]
 
-    return SolveResponse(schedules=schedules, warnings=warnings, truncated=truncated)
+    return SolveResponse(results=results, warnings=warnings, truncated=truncated)
 
 
 def _find_impossible_pair(
