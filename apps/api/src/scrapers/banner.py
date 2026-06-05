@@ -292,10 +292,28 @@ async def scrape_subject(
                 wait_until="networkidle",
             )
 
+            # Banner requires a term selection POST before searchResults returns data.
+            # Without this the session has no active term and every query returns data=null.
+            term_resp = await page.request.post(
+                f"{BANNER_BASE}/term/search?mode=search",
+                form={
+                    "term":            term,
+                    "studyPath":       "",
+                    "studyPathText":   "",
+                    "startDatepicker": "",
+                    "endDatepicker":   "",
+                    "uniqueSessionId": f"scraper-{term}-{subject}",
+                },
+            )
+            if term_resp.status != 200:
+                raise BannerBlockedError(
+                    f"Banner term/search POST returned {term_resp.status} for term {term}"
+                )
+
             while True:
                 params = {
-                    "term":        term,
-                    "subject":     subject,
+                    "txt_term":    term,
+                    "txt_subject": subject,
                     "pageOffset":  offset,
                     "pageMaxSize": PAGE_SIZE,
                 }
