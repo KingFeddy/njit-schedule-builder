@@ -27,6 +27,15 @@ CREATE TABLE IF NOT EXISTS sections (
 CREATE INDEX IF NOT EXISTS idx_sections_course_term ON sections(course_code, term);
 CREATE INDEX IF NOT EXISTS idx_sections_term        ON sections(term);
 
+-- ── professors table (exists in production, currently unpopulated) ────────────
+-- Used by GET /api/professors/{name} only for the department derivation
+-- fallback. RMP data lives in rmp_cache, not here.
+
+CREATE TABLE IF NOT EXISTS professors (
+  professor_name  TEXT        PRIMARY KEY,
+  department      TEXT
+);
+
 -- ── Migration 007: meetings table ─────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS meetings (
