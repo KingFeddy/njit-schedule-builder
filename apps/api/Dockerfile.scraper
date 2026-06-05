@@ -1,0 +1,18 @@
+FROM python:3.12-slim
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+# Install Playwright's system dependencies and the Chromium browser binary.
+# Must happen after uv sync so the playwright CLI is on PATH.
+# playwright install-deps runs apt for Chromium's system libs (libnss3, libatk, etc.).
+# playwright install downloads the Chromium binary to ~/.cache/ms-playwright.
+RUN uv run playwright install-deps chromium
+RUN uv run playwright install chromium
+
+COPY . .
+
+CMD ["uv", "run", "python", "-m", "src.scrapers.cron"]

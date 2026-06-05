@@ -1,0 +1,27 @@
+# API service configuration for Railway.
+#
+# The scraper runs as a SEPARATE Railway service using Dockerfile.scraper.
+# Railway does not support multi-service definitions in a single railway.toml —
+# create the scraper service in the Railway dashboard with these settings:
+#
+#   Source:          same repo, same root directory (apps/api/)
+#   Dockerfile path: Dockerfile.scraper
+#   Start command:   uv run python -m src.scrapers.cron
+#   Cron schedule:   */30 * * * *   (Settings → Deploy → Cron Schedule)
+#
+# Why two services instead of one:
+#   Playwright headless Chromium uses 300–600 MB of resident memory per run.
+#   Running it in the same container as FastAPI risks OOM-killing the API
+#   on Railway Hobby (512 MB default). Separate services = separate containers
+#   = the scraper can restart without touching the API.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uv run uvicorn main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
