@@ -1,0 +1,7 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.scraper"
+
+[deploy]
+startCommand = "echo 'Scraper runs on cron only'"
+restartPolicyType = "NEVER"
