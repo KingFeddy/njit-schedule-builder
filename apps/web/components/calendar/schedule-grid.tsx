@@ -6,14 +6,13 @@ const START_HOUR = 7
 const END_HOUR = 22
 const TOTAL_HOURS = END_HOUR - START_HOUR // 15
 const GRID_HEIGHT = TOTAL_HOURS * PX_PER_HOUR // 720px — used for all position math
-const GRID_DISPLAY_HEIGHT = GRID_HEIGHT + PX_PER_HOUR / 2 + 12 // 756px — room for 10:30pm closing line + 12px padding
 
 const DAY_MAP: Record<string, number> = { M: 0, T: 1, W: 2, R: 3, F: 4 }
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 
 // 16 hour labels: 7am through 10pm inclusive
 const HOUR_MARKS = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => START_HOUR + i)
-// 16 rows: 15 hour slots + closing row that draws the 10pm hourly line and 10:30pm half-hour line
+// 16 rows: 15 hour slots + closing row that draws the 10pm hourly line
 const GRID_ROWS = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => i)
 
 function hourLabel(h: number): string {
@@ -66,10 +65,10 @@ export function ScheduleGrid({ result }: ScheduleGridProps) {
       <div className="overflow-y-auto flex-1 pt-3">
         <div
           className="grid border-b border-border"
-          style={{ gridTemplateColumns: '48px repeat(5, 1fr)', height: GRID_DISPLAY_HEIGHT }}
+          style={{ gridTemplateColumns: '48px repeat(5, 1fr)', height: GRID_HEIGHT }}
         >
           {/* Time label column */}
-          <div className="relative border-r border-border" style={{ height: GRID_DISPLAY_HEIGHT }}>
+          <div className="relative border-r border-border" style={{ height: GRID_HEIGHT }}>
             {HOUR_MARKS.map((h, i) => (
               <span
                 key={h}
@@ -86,7 +85,7 @@ export function ScheduleGrid({ result }: ScheduleGridProps) {
             <div
               key={colIdx}
               className="relative border-r border-border last:border-r-0"
-              style={{ height: GRID_DISPLAY_HEIGHT }}
+              style={{ height: GRID_HEIGHT }}
             >
               {/* Hourly and half-hour grid lines */}
               {GRID_ROWS.map((i) => (
@@ -95,10 +94,12 @@ export function ScheduleGrid({ result }: ScheduleGridProps) {
                     className="absolute w-full border-t border-border"
                     style={{ top: i * PX_PER_HOUR }}
                   />
-                  <div
-                    className="absolute w-full border-t border-border opacity-40"
-                    style={{ top: i * PX_PER_HOUR + PX_PER_HOUR / 2 }}
-                  />
+                  {i < TOTAL_HOURS && (
+                    <div
+                      className="absolute w-full border-t border-border opacity-40"
+                      style={{ top: i * PX_PER_HOUR + PX_PER_HOUR / 2 }}
+                    />
+                  )}
                 </div>
               ))}
 
