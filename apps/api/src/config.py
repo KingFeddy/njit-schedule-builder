@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     DATABASE_URL:       str
     SUPABASE_URL:       str
     SUPABASE_ANON_KEY:  str
-    CURRENT_TERM:       str = "202510"
+    CURRENT_TERM:       str = "202690"
     APP_ENV:            str = "development"
     CORS_ORIGINS:       str = "http://localhost:3000"
     SENTRY_DSN:         str = ""
