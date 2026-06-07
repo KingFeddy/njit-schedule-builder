@@ -18,7 +18,8 @@ from .lock import advisory_lock, BANNER_SCRAPER_LOCK_ID
 
 logger = logging.getLogger(__name__)
 
-BANNER_BASE = "https://reg-prod.ec.njit.edu/StudentRegistrationSsb/ssb"
+BANNER_HOST = "https://reg-prod.ec.njit.edu"
+BANNER_BASE = f"{BANNER_HOST}/StudentRegistrationSsb/ssb"
 PAGE_SIZE   = 500
 RETRY_DELAYS = [5, 15, 30]
 
@@ -77,12 +78,25 @@ def _parse_meeting_pattern(
 
 
 def _extract_professor_name(raw_section: dict) -> Optional[str]:
-    """Return the first faculty displayName found in meetingsFaculty, or None."""
+    """Return the primary faculty displayName for a section.
+
+    Banner stores faculty at the top-level 'faculty' key on the section object.
+    The nested meetingsFaculty[i].faculty list is always empty in the current
+    Banner version — checking it last as a fallback for older API responses.
+    """
+    # Primary path: top-level faculty array (current Banner behavior)
+    for member in raw_section.get("faculty", []):
+        if member.get("primaryIndicator") and member.get("displayName"):
+            return member["displayName"]
+    # Fallback: first non-empty displayName regardless of primaryIndicator
+    for member in raw_section.get("faculty", []):
+        if member.get("displayName"):
+            return member["displayName"]
+    # Legacy path: meetingsFaculty[i].faculty (older Banner versions)
     for meeting in raw_section.get("meetingsFaculty", []):
         for member in meeting.get("faculty", []):
-            name = member.get("displayName")
-            if name:
-                return name
+            if member.get("displayName"):
+                return member["displayName"]
     return None
 
 
@@ -308,6 +322,18 @@ async def scrape_subject(
             if term_resp.status != 200:
                 raise BannerBlockedError(
                     f"Banner term/search POST returned {term_resp.status} for term {term}"
+                )
+
+            # Banner responds with {"fwdURL": "/StudentRegistrationSsb/ssb/classSearch/classSearch"}.
+            # Navigating there switches the session from registration context to classSearch
+            # context — without this step every subsequent searchResults query returns 500.
+            fwd_body = json.loads(await term_resp.text())
+            fwd_path = fwd_body.get("fwdURL", "")
+            if fwd_path:
+                await page.goto(
+                    f"{BANNER_HOST}{fwd_path}",
+                    timeout=30_000,
+                    wait_until="networkidle",
                 )
 
             while True:
