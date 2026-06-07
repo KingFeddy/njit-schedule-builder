@@ -24,6 +24,7 @@ out/
 docs/
 subsystems/
 dev-log.md
+repomix-output.xml
 
 # OS
 .DS_Store
