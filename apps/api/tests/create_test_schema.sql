@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS sections (
   open_seats      INTEGER     NOT NULL DEFAULT 0,
   location        TEXT,
   scraped_at      TIMESTAMPTZ,
+  section_number  TEXT,
 
   PRIMARY KEY (crn, term)
 );
@@ -93,3 +94,6 @@ CREATE TABLE IF NOT EXISTS rmp_cache (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rmp_cache_expiry ON rmp_cache(expires_at);
+
+-- ── Migration 013: section_number column ──────────────────────────────────────
+-- section_number already included in sections CREATE TABLE above.
