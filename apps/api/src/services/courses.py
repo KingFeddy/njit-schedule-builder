@@ -21,7 +21,7 @@ async def load_sections_with_meetings(
     sections_result = await session.execute(
         text("""
             SELECT crn, term, course_code, professor_name,
-                   total_seats, open_seats, scraped_at
+                   total_seats, open_seats, scraped_at, section_number
             FROM sections
             WHERE course_code = ANY(:codes) AND term = :term
         """),
@@ -68,6 +68,7 @@ async def load_sections_with_meetings(
                 total_seats=row["total_seats"],
                 open_seats=row["open_seats"],
                 scraped_at=row["scraped_at"],
+                section_number=row["section_number"],
                 meetings=meetings_by_crn.get(row["crn"], []),
             )
         )
