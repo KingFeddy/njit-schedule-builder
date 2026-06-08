@@ -187,12 +187,13 @@ async def _upsert_section_with_meetings(
     with zero meetings mid-update.
     open_seats is clamped to 0 — Banner returns negative values for waitlisted sections.
     """
-    crn          = raw_section["courseReferenceNumber"]
-    course_code  = f"{raw_section['subject']}{raw_section['courseNumber']}"
-    open_seats   = max(0, raw_section.get("seatsAvailable", 0))
-    total_seats  = raw_section.get("maximumEnrollment", 0)
-    professor    = _extract_professor_name(raw_section)
-    patterns     = raw_section.get("meetingsFaculty", [])
+    crn            = raw_section["courseReferenceNumber"]
+    course_code    = f"{raw_section['subject']}{raw_section['courseNumber']}"
+    open_seats     = max(0, raw_section.get("seatsAvailable", 0))
+    total_seats    = raw_section.get("maximumEnrollment", 0)
+    section_number = raw_section.get("sequenceNumber")
+    professor      = _extract_professor_name(raw_section)
+    patterns       = raw_section.get("meetingsFaculty", [])
 
     # Section-level location from the first meeting that has one
     section_location: Optional[str] = None
@@ -206,24 +207,28 @@ async def _upsert_section_with_meetings(
         await session.execute(
             text("""
                 INSERT INTO sections (crn, term, course_code, professor_name,
-                                      total_seats, open_seats, location, scraped_at)
+                                      total_seats, open_seats, location, scraped_at,
+                                      section_number)
                 VALUES (:crn, :term, :course_code, :professor_name,
-                        :total_seats, :open_seats, :location, NOW())
+                        :total_seats, :open_seats, :location, NOW(),
+                        :section_number)
                 ON CONFLICT (crn, term) DO UPDATE SET
                     professor_name = EXCLUDED.professor_name,
                     total_seats    = EXCLUDED.total_seats,
                     open_seats     = EXCLUDED.open_seats,
                     location       = EXCLUDED.location,
-                    scraped_at     = EXCLUDED.scraped_at
+                    scraped_at     = EXCLUDED.scraped_at,
+                    section_number = EXCLUDED.section_number
             """),
             {
-                "crn":           crn,
-                "term":          term,
-                "course_code":   course_code,
+                "crn":            crn,
+                "term":           term,
+                "course_code":    course_code,
                 "professor_name": professor,
-                "total_seats":   total_seats,
-                "open_seats":    open_seats,
-                "location":      section_location,
+                "total_seats":    total_seats,
+                "open_seats":     open_seats,
+                "location":       section_location,
+                "section_number": section_number,
             },
         )
 
