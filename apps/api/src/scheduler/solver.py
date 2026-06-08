@@ -178,6 +178,7 @@ def solve(
     sections_by_course: dict[str, list[SectionSlot]],
     options: CommuterOptions,
     professor_preferences: dict[str, list[str]],
+    compact_week: bool = False,
 ) -> SolveResponse:
     """
     Pure synchronous solver. Called from the route handler after DB loading.
@@ -250,12 +251,23 @@ def solve(
             warnings.append("No valid schedules found.")
         return SolveResponse(results=[], warnings=warnings, truncated=truncated)
 
+    # ── Compact Week filter ────────────────────────────────────────────────
+    if compact_week:
+        raw_results = [r for r in raw_results if compute_campus_days(r) < 5]
+        if not raw_results:
+            warnings.append(
+                "No schedules found with at least one day off. Try disabling Compact Week."
+            )
+            return SolveResponse(results=[], warnings=warnings, truncated=truncated)
+
     # ── Phase 4: Rank ──────────────────────────────────────────────────────
     def _rank_key(sections: list[SectionSlot]) -> tuple:
         gap        = compute_gap_minutes(sections)
         days       = compute_campus_days(sections)
         total_open = sum(s.open_seats for s in sections)
-        if options.minimize_gaps:
+        if compact_week:
+            return (days, gap, -total_open)
+        elif options.minimize_gaps:
             return (gap, days, -total_open)
         else:
             return (days, gap, -total_open)
