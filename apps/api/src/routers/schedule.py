@@ -26,12 +26,12 @@ async def solve_schedule(
     db: AsyncSession = Depends(get_db),
 ) -> SolveResponse:
     logger.debug(
-        "SolveRequest | courses=%r term=%r blocked=%r earliest=%r latest=%r",
+        "SolveRequest | courses=%r term=%r earliest=%r latest=%r compact_week=%r",
         body.course_codes,
         body.term,
-        body.options.blocked_days,
         body.options.earliest_start,
         body.options.latest_end,
+        body.compact_week,
     )
 
     # Two DB queries regardless of course count (bulk loader, no N+1)
@@ -44,4 +44,5 @@ async def solve_schedule(
         sections_by_course=sections_by_course,
         options=body.options,
         professor_preferences=body.professor_preferences,
+        compact_week=body.compact_week,
     )
