@@ -40,6 +40,7 @@ class SolveRequest(BaseModel):
     term:                  str
     options:               CommuterOptions = Field(default_factory=CommuterOptions)
     professor_preferences: dict[str, list[str]] = Field(default_factory=dict)
+    compact_week:          bool = False
 
     @field_validator("course_codes")
     @classmethod
