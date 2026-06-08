@@ -2,8 +2,6 @@
 
 import { useSchedulerStore } from '@/store/scheduler'
 
-const DAYS = ['M', 'T', 'W', 'R', 'F']
-
 function buildTimeOptions(): { value: string; label: string }[] {
   const opts: { value: string; label: string }[] = []
   for (let h = 7; h <= 22; h++) {
@@ -23,43 +21,11 @@ const TIME_OPTIONS = buildTimeOptions()
 
 export function CommuterToggles() {
   const { commuterOptions, setCommuterOptions } = useSchedulerStore()
-  const { blocked_days, earliest_start, latest_end, minimize_gaps } = commuterOptions
-
-  function toggleDay(day: string) {
-    const next = blocked_days.includes(day)
-      ? blocked_days.filter((d) => d !== day)
-      : [...blocked_days, day]
-    setCommuterOptions({ blocked_days: next })
-  }
+  const { earliest_start, latest_end, minimize_gaps, compact_week } = commuterOptions
 
   return (
     <div className="flex flex-col gap-4">
       <p className="text-xs font-medium uppercase tracking-wider text-muted">Commuter Mode</p>
-
-      {/* Days Off */}
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-text">Days Off</p>
-        <p className="text-xs text-muted">Select days you want completely free</p>
-        <div className="flex gap-1.5">
-          {DAYS.map((day) => {
-            const active = blocked_days.includes(day)
-            return (
-              <button
-                key={day}
-                onClick={() => toggleDay(day)}
-                className={[
-                  'flex-1 py-1 rounded-md text-xs font-mono font-medium border transition-colors duration-150',
-                  active
-                    ? 'bg-njit-red border-njit-red text-white'
-                    : 'bg-surface border-border text-muted hover:border-border-strong hover:text-text',
-                ].join(' ')}
-              >
-                {day}
-              </button>
-            )
-          })}
-        </div>
-      </div>
 
       {/* Class Hours */}
       <div className="flex flex-col gap-2">
@@ -93,6 +59,30 @@ export function CommuterToggles() {
               ))}
             </select>
           </div>
+        </div>
+      </div>
+
+      {/* Compact Week toggle */}
+      <div
+        className="flex items-center justify-between cursor-pointer group"
+        onClick={() => setCommuterOptions({ compact_week: !compact_week })}
+      >
+        <div>
+          <p className="text-sm font-medium text-text">Compact Week</p>
+          <p className="text-xs text-muted">Prefer schedules with fewer campus days</p>
+        </div>
+        <div
+          className="relative flex-shrink-0 w-9 h-5 rounded-full border transition-colors duration-150"
+          style={
+            compact_week
+              ? { background: 'var(--njit-red)', borderColor: 'var(--njit-red)' }
+              : { background: 'var(--surface-2)', borderColor: 'var(--border)' }
+          }
+        >
+          <span
+            className="absolute top-0.5 w-4 h-4 rounded-full bg-text transition-transform duration-150"
+            style={{ transform: compact_week ? 'translateX(16px)' : 'translateX(2px)' }}
+          />
         </div>
       </div>
 
