@@ -21,6 +21,12 @@ function minutesToPx(totalMinutes: number): number {
   return ((totalMinutes - START_HOUR * 60) / 60) * PX_PER_HOUR
 }
 
+function seatColor(open: number): string {
+  if (open === 0) return 'text-muted'
+  if (open <= 10) return 'text-yellow'
+  return 'text-green'
+}
+
 interface CourseBlockProps {
   slot: SectionSlot
   hasConflict?: boolean
@@ -35,6 +41,10 @@ export function CourseBlock({ slot, hasConflict = false }: CourseBlockProps) {
   const heightPx = ((endMin - startMin) / 60) * PX_PER_HOUR
   const bg = courseColor(slot.course_code)
 
+  const showSection  = heightPx >= 36
+  const showLocation = heightPx >= 54
+  const showSeats    = heightPx >= 68
+
   return (
     <div
       className={[
@@ -46,8 +56,16 @@ export function CourseBlock({ slot, hasConflict = false }: CourseBlockProps) {
       style={{ top: topPx, height: heightPx, backgroundColor: bg, border: `1px solid ${bg}cc` }}
     >
       <p className="font-mono font-bold text-xs text-text truncate">{slot.course_code}</p>
-      {slot.location && (
+      {showSection && slot.section_number && (
+        <p className="font-mono text-[10px] text-muted truncate">§ {slot.section_number}</p>
+      )}
+      {showLocation && slot.location && (
         <p className="font-mono text-[10px] text-muted truncate">{slot.location}</p>
+      )}
+      {showSeats && (
+        <p className={`font-mono tabular-nums text-[10px] truncate ${seatColor(slot.open_seats)}`}>
+          {slot.open_seats} / {slot.total_seats} seats
+        </p>
       )}
     </div>
   )
