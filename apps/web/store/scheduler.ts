@@ -3,17 +3,17 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { ProfessorResponse, ScheduleResult } from '@/lib/api'
 
 export interface CommuterOptions {
-  blocked_days: string[]
   earliest_start: string
   latest_end: string
   minimize_gaps: boolean
+  compact_week: boolean
 }
 
 const defaultCommuterOptions: CommuterOptions = {
-  blocked_days: [],
   earliest_start: '07:00',
   latest_end: '21:00',
   minimize_gaps: false,
+  compact_week: false,
 }
 
 interface SchedulerState {
@@ -124,7 +124,7 @@ export const useSchedulerStore = create<SchedulerState>()(
     {
       name: 'njit-scheduler',
       storage: createJSONStorage(() => safeStorage),
-      version: 1,
+      version: 2,
       partialize: (s) => ({
         selectedCourses: s.selectedCourses,
         term: s.term,
@@ -133,7 +133,7 @@ export const useSchedulerStore = create<SchedulerState>()(
         activeResultIndex: s.activeResultIndex,
       }),
       migrate(state, version) {
-        if (version < 1) {
+        if (version < 2) {
           return {
             ...(state as Partial<SchedulerState>),
             commuterOptions: defaultCommuterOptions,
