@@ -97,6 +97,7 @@ def _section_to_response(section: SectionSlot) -> SolveSectionResponse:
         start_time=primary.start_time.strftime("%H:%M") if primary and primary.start_time else None,
         end_time=primary.end_time.strftime("%H:%M") if primary and primary.end_time else None,
         location=primary.location if primary else None,
+        section_number=section.section_number,
     )
 
 

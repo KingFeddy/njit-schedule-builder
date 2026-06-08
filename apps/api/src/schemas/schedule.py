@@ -93,6 +93,7 @@ class SolveSectionResponse(BaseModel):
     start_time:     str | None
     end_time:       str | None
     location:       str | None
+    section_number: str | None
 
 
 class ScheduleResult(BaseModel):
