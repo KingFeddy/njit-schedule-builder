@@ -29,6 +29,7 @@ export interface SectionSlot {
   start_time: string | null
   end_time: string | null
   location: string | null
+  section_number: string | null
 }
 
 export interface ScheduleResult {
