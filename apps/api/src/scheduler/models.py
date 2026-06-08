@@ -26,6 +26,7 @@ class SectionSlot:
     open_seats:     int
     meetings:       list[MeetingSlot] = field(default_factory=list)
     scraped_at:     Optional[datetime] = None
+    section_number: Optional[str] = None
 
     @property
     def is_async(self) -> bool:
