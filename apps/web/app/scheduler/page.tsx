@@ -34,10 +34,10 @@ export default function SchedulerPage() {
       const res = await solveShedule({
         course_codes: selectedCourses,
         term,
-        blocked_days: commuterOptions.blocked_days,
         earliest_start: commuterOptions.earliest_start || '07:00',
         latest_end: commuterOptions.latest_end || '21:00',
         minimize_gaps: commuterOptions.minimize_gaps,
+        compact_week: commuterOptions.compact_week,
         professor_preferences: Object.fromEntries(
           Object.entries(professorPreferences).filter(([, v]) => v.length > 0),
         ),
