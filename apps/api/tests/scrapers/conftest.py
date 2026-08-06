@@ -66,6 +66,18 @@ async def db_session():
             text("DELETE FROM courses WHERE course_code = 'CS999'")
         )
 
+        # Remove the uncatalogued-course stub created by
+        # test_uncatalogued_course_gets_stub_row_before_section_insert
+        await session.execute(
+            text("DELETE FROM meetings WHERE crn = '88888'")
+        )
+        await session.execute(
+            text("DELETE FROM sections WHERE crn = '88888'")
+        )
+        await session.execute(
+            text("DELETE FROM courses WHERE course_code = 'CS998'")
+        )
+
         # Remove scraper_runs created in the last 5 minutes (test runs are fast)
         await session.execute(
             text("""

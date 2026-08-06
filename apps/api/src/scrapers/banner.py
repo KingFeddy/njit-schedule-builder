@@ -204,6 +204,23 @@ async def _upsert_section_with_meetings(
             break
 
     async with session.begin():
+        # Banner may reference a course_code not yet in the courses table
+        # (e.g. a newly-added special-topics number). Stub it in first so the
+        # sections FK doesn't reject the section outright. DO NOTHING — never
+        # overwrite a real catalog title with this fallback.
+        await session.execute(
+            text("""
+                INSERT INTO courses (course_code, title, credits)
+                VALUES (:course_code, :title, :credits)
+                ON CONFLICT (course_code) DO NOTHING
+            """),
+            {
+                "course_code": course_code,
+                "title":       raw_section.get("courseTitle") or course_code,
+                "credits":     3,
+            },
+        )
+
         await session.execute(
             text("""
                 INSERT INTO sections (crn, term, course_code, professor_name,

@@ -219,6 +219,41 @@ async def test_negative_open_seats_clamped_to_zero(db_session):
     assert row["open_seats"] == 0, "Negative open_seats must be clamped to 0"
 
 
+# ─── Uncatalogued courses ─────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_uncatalogued_course_gets_stub_row_before_section_insert(db_session):
+    """
+    Banner returns sections for course codes that may not exist in the courses
+    table yet (e.g. newly-added special-topics numbers). A stub courses row
+    must be created first so the sections FK doesn't silently drop the section.
+    """
+    from src.scrapers.banner import _upsert_section_with_meetings
+
+    raw_section = {
+        "courseReferenceNumber": "88888",
+        "subject": "CS",
+        "courseNumber": "998",
+        "seatsAvailable": 5,
+        "maximumEnrollment": 10,
+        "meetingsFaculty": [],
+    }
+
+    await _upsert_section_with_meetings(db_session, raw_section, "202690")
+
+    from sqlalchemy import text
+    course_row = await db_session.execute(
+        text("SELECT title, credits FROM courses WHERE course_code = 'CS998'")
+    )
+    course = course_row.mappings().first()
+    assert course is not None, "Stub courses row must be created for an uncatalogued course"
+
+    section_row = await db_session.execute(
+        text("SELECT crn FROM sections WHERE crn = '88888' AND term = '202690'")
+    )
+    assert section_row.mappings().first() is not None, "Section must be inserted, not silently dropped"
+
+
 # ─── Concurrency guard ────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
