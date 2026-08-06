@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, Star, Flame } from 'lucide-react'
+import { X, Star, Flame, ArrowUpRight } from 'lucide-react'
 import { getProfessor, type ProfessorResponse } from '@/lib/api'
 import { useSchedulerStore } from '@/store/scheduler'
 import { VibeCheckPill } from '@/components/ui/vibe-check-pill'
 
 interface ProfessorModalProps {
   professorName: string
-  courseCode: string
   onClose: () => void
 }
 
@@ -30,7 +29,7 @@ function difficultyColor(score: number): string {
   return 'text-njit-red'
 }
 
-export function ProfessorModal({ professorName, courseCode, onClose }: ProfessorModalProps) {
+export function ProfessorModal({ professorName, onClose }: ProfessorModalProps) {
   const professorCache = useSchedulerStore((s) => s.professorCache)
 
   // Initialize from cache synchronously — eliminates the loading flash when
@@ -148,25 +147,16 @@ export function ProfessorModal({ professorName, courseCode, onClose }: Professor
             </div>
           )}
 
-          {/* About */}
-          <div className="rounded-xl border border-border bg-surface-2 p-4 space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted">
-              About this professor
-            </p>
-            <p className="text-sm text-text">
-              No summary available — check RMP directly for reviews.
-            </p>
-          </div>
-
-          {/* Tips */}
-          <div className="rounded-xl border border-border bg-surface-2 p-4 space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted">
-              Tips for {courseCode}
-            </p>
-            <p className="text-sm text-text">
-              No tips yet — check back after registration opens.
-            </p>
-          </div>
+          {/* RMP link */}
+          <a
+            href={`https://www.ratemyprofessors.com/search/professors?q=${encodeURIComponent(formatName(professorName))}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-muted underline underline-offset-2 hover:text-text transition-colors duration-150"
+          >
+            View on RateMyProfessors
+            <ArrowUpRight className="w-3 h-3" />
+          </a>
         </div>
       </div>
     </div>

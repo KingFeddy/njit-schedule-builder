@@ -201,7 +201,6 @@ export function ProfessorPicker({ courseCode }: ProfessorPickerProps) {
       {activeModal && (
         <ProfessorModal
           professorName={activeModal}
-          courseCode={courseCode}
           onClose={() => setActiveModal(null)}
         />
       )}
