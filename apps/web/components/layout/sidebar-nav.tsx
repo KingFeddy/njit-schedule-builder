@@ -2,10 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, CalendarDays, Map } from 'lucide-react'
+import { CalendarDays, Map } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { label: 'Courses',   href: '/courses',   icon: BookOpen },
   { label: 'Scheduler', href: '/scheduler', icon: CalendarDays },
   { label: 'Planner',   href: '/planner',   icon: Map },
 ] as const
