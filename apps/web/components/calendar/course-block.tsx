@@ -1,5 +1,6 @@
 import type { SectionSlot } from '@/lib/api'
 import { courseColor } from '@/lib/course-colors'
+import { seatColorClass } from '@/components/ui/seat-status'
 
 const PX_PER_HOUR = 48
 const START_HOUR = 7
@@ -19,12 +20,6 @@ function timeToMinutes(timeStr: string): number {
 
 function minutesToPx(totalMinutes: number): number {
   return ((totalMinutes - START_HOUR * 60) / 60) * PX_PER_HOUR
-}
-
-function seatColor(open: number): string {
-  if (open === 0) return 'text-muted'
-  if (open <= 10) return 'text-yellow'
-  return 'text-green'
 }
 
 interface CourseBlockProps {
@@ -63,7 +58,7 @@ export function CourseBlock({ slot, hasConflict = false }: CourseBlockProps) {
         <p className="font-mono text-[10px] text-muted truncate">{slot.location}</p>
       )}
       {showSeats && (
-        <p className={`font-mono tabular-nums text-[10px] truncate ${seatColor(slot.open_seats)}`}>
+        <p className={`font-mono tabular-nums text-[10px] truncate ${seatColorClass(slot.open_seats)}`}>
           {slot.open_seats} / {slot.total_seats} seats
         </p>
       )}

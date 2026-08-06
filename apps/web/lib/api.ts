@@ -21,10 +21,10 @@ export interface SectionSlot {
   crn: string
   term: string
   course_code: string
-  professor_name: string
+  professor_name: string | null
   total_seats: number
   open_seats: number
-  scraped_at: string
+  scraped_at: string | null
   days: string | null
   start_time: string | null
   end_time: string | null

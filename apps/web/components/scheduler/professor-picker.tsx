@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Check, Star, Flame } from 'lucide-react'
 import { useSchedulerStore } from '@/store/scheduler'
-import { ProfessorModal } from './professor-modal'
+import { ProfessorModal, ratingColor, difficultyColor } from './professor-modal'
 
 // ─── Professor name overflow cell ────────────────────────────────────────────
 
@@ -58,20 +58,6 @@ function ProfessorNameCell({
       </span>
     </div>
   )
-}
-
-// ─── Rating color helpers (picker thresholds — spec §7) ─────────────────────
-
-function ratingColor(score: number): string {
-  if (score >= 4.0) return 'text-green'
-  if (score >= 3.0) return 'text-yellow'
-  return 'text-njit-red'
-}
-
-function difficultyColor(score: number): string {
-  if (score <= 2.5) return 'text-green'
-  if (score <= 3.9) return 'text-yellow'
-  return 'text-njit-red'
 }
 
 // ─── ProfessorPicker ─────────────────────────────────────────────────────────

@@ -17,13 +17,16 @@ function formatName(raw: string): string {
   return `${first} ${last}`.trim()
 }
 
-function ratingColor(score: number): string {
+// Spec §5 RmpBadge thresholds — single source of truth. professor-picker.tsx
+// imports these rather than keeping its own copy, so the picker dropdown and
+// this modal can never show a different color for the same rating.
+export function ratingColor(score: number): string {
   if (score >= 4.0) return 'text-green'
-  if (score >= 2.5) return 'text-yellow'
+  if (score >= 3.0) return 'text-yellow'
   return 'text-njit-red'
 }
 
-function difficultyColor(score: number): string {
+export function difficultyColor(score: number): string {
   if (score <= 2.5) return 'text-green'
   if (score <= 3.9) return 'text-yellow'
   return 'text-njit-red'
