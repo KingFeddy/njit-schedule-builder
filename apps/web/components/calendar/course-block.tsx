@@ -4,6 +4,10 @@ import { seatColorClass } from '@/components/ui/seat-status'
 
 const PX_PER_HOUR = 48
 const START_HOUR = 7
+// Below this height, section + professor share one line. At/above it,
+// they split onto two — the smallest height at which a 3rd text line
+// fits without crowding (matches the block's old showLocation threshold).
+const SPLIT_HEIGHT = 54
 
 function timeToMinutes(timeStr: string): number {
   const ampm = /(\d+):(\d+)\s*(AM|PM)/i.exec(timeStr)
@@ -22,6 +26,13 @@ function minutesToPx(totalMinutes: number): number {
   return ((totalMinutes - START_HOUR * 60) / 60) * PX_PER_HOUR
 }
 
+// Last-name-only — day blocks have no room for a full name. Backend sends
+// "Last, First Middle"; null means Banner never reported a professor.
+function lastName(raw: string | null): string {
+  if (!raw) return 'Staff'
+  return raw.includes(',') ? raw.split(',')[0].trim() : raw
+}
+
 interface CourseBlockProps {
   slot: SectionSlot
   hasConflict?: boolean
@@ -35,10 +46,9 @@ export function CourseBlock({ slot, hasConflict = false }: CourseBlockProps) {
   const topPx = minutesToPx(startMin)
   const heightPx = ((endMin - startMin) / 60) * PX_PER_HOUR
   const bg = courseColor(slot.course_code)
-
-  const showSection  = heightPx >= 36
-  const showLocation = heightPx >= 54
-  const showSeats    = heightPx >= 68
+  const prof = lastName(slot.professor_name)
+  const splitLines = heightPx >= SPLIT_HEIGHT
+  const sectionProf = slot.section_number ? `§${slot.section_number} · ${prof}` : prof
 
   return (
     <div
@@ -50,17 +60,23 @@ export function CourseBlock({ slot, hasConflict = false }: CourseBlockProps) {
         .trim()}
       style={{ top: topPx, height: heightPx, backgroundColor: bg, border: `1px solid ${bg}cc` }}
     >
-      <p className="font-mono font-bold text-xs text-text truncate">{slot.course_code}</p>
-      {showSection && slot.section_number && (
-        <p className="font-mono text-[10px] text-muted truncate">§ {slot.section_number}</p>
-      )}
-      {showLocation && slot.location && (
-        <p className="font-mono text-[10px] text-muted truncate">{slot.location}</p>
-      )}
-      {showSeats && (
-        <p className={`font-mono tabular-nums text-[10px] truncate ${seatColorClass(slot.open_seats)}`}>
-          {slot.open_seats} / {slot.total_seats} seats
+      <div className="flex items-baseline justify-between gap-1">
+        <p className="font-mono font-bold text-[13px] text-text truncate">{slot.course_code}</p>
+        <p
+          className={`font-mono tabular-nums text-[11px] flex-shrink-0 ${seatColorClass(slot.open_seats)}`}
+        >
+          {slot.open_seats}/{slot.total_seats}
         </p>
+      </div>
+      {splitLines ? (
+        <>
+          {slot.section_number && (
+            <p className="font-mono text-[11px] text-muted truncate">§{slot.section_number}</p>
+          )}
+          <p className="font-mono text-[11px] text-muted truncate">{prof}</p>
+        </>
+      ) : (
+        <p className="font-mono text-[11px] text-muted truncate">{sectionProf}</p>
       )}
     </div>
   )
