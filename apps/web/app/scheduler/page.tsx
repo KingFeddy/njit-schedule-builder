@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import { useSchedulerStore } from '@/store/scheduler'
-import { solveShedule, getProfessor, type ProfessorResponse } from '@/lib/api'
+import { solveSchedule, getProfessor, type ProfessorResponse } from '@/lib/api'
 import { useScraperStatus } from '@/hooks/useScraperStatus'
 import { CourseSelector } from '@/components/scheduler/course-selector'
 import { CommuterToggles } from '@/components/scheduler/commuter-toggles'
@@ -31,17 +31,13 @@ export default function SchedulerPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await solveShedule({
+      const res = await solveSchedule({
         course_codes: selectedCourses,
         term,
-        earliest_start: commuterOptions.earliest_start || '07:00',
-        latest_end: commuterOptions.latest_end || '21:00',
-        minimize_gaps: commuterOptions.minimize_gaps,
         compact_week: commuterOptions.compact_week,
         professor_preferences: Object.fromEntries(
           Object.entries(professorPreferences).filter(([, v]) => v.length > 0),
         ),
-        top_n: 50,
       })
       setResults(res.results, res.warnings)
 

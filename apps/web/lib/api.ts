@@ -43,12 +43,8 @@ export interface ScheduleResult {
 export interface SolveRequest {
   course_codes: string[]
   term: string
-  earliest_start: string
-  latest_end: string
-  minimize_gaps: boolean
   compact_week: boolean
   professor_preferences: Record<string, string[]>
-  top_n: number
 }
 
 export interface SolveResponse {
@@ -127,7 +123,7 @@ export function getProfessor(name: string): Promise<ProfessorResponse | null> {
   ).catch(() => null)
 }
 
-export function solveShedule(req: SolveRequest): Promise<SolveResponse> {
+export function solveSchedule(req: SolveRequest): Promise<SolveResponse> {
   return apiFetch('/api/schedule/solve', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
