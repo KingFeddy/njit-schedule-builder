@@ -11,7 +11,7 @@ A full-stack web app for NJIT students: conflict-free schedule generation, profe
 | Feature | Description |
 |---|---|
 | **Schedule Solver** | Select up to 8 courses → get up to 10 ranked, conflict-free schedules in under 1 second |
-| **Commuter Mode** | Block specific days, set earliest/latest class times, minimize gaps |
+| **Compact Week** | Prefer schedules with fewer campus days |
 | **Professor Picker** | See RMP ratings and difficulty scores inline while choosing sections |
 | **Degree Planner** | Upload your DegreeWorks PDF → extract remaining requirements → generate a semester-by-semester graduation plan |
 
