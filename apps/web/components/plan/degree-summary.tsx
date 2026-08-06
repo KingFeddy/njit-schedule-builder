@@ -2,7 +2,6 @@ import type { ParsedDegreeValidated } from '@/lib/api'
 
 interface DegreeSummaryProps {
   parsed: ParsedDegreeValidated
-  cached: boolean
 }
 
 function Stat({ label, value }: { label: string; value: number }) {
@@ -15,7 +14,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   )
 }
 
-export function DegreeSummary({ parsed, cached }: DegreeSummaryProps) {
+export function DegreeSummary({ parsed }: DegreeSummaryProps) {
   const {
     student_name,
     majors,
@@ -37,11 +36,6 @@ export function DegreeSummary({ parsed, cached }: DegreeSummaryProps) {
 
       <div className="flex items-center gap-2 flex-wrap">
         <p className="text-xl font-semibold tracking-tight">{student_name}</p>
-        {cached && (
-          <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-surface-2 border border-border text-faint">
-            Loaded from cache
-          </span>
-        )}
       </div>
 
       {(majors.length > 0 || minors.length > 0) && (

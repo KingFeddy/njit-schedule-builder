@@ -169,7 +169,7 @@ export default function PlannerPage() {
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-8">
           {/* Left column */}
           <div className="space-y-6">
-            <DegreeSummary parsed={parsed} cached={loadedFromCache} />
+            <DegreeSummary parsed={parsed} />
             <PreferencesForm
               parsed={parsed}
               onPlanGenerated={handlePlanGenerated}
