@@ -1,5 +1,6 @@
 import type { ScheduleResult } from '@/lib/api'
 import { CourseBlock } from './course-block'
+import { AsyncBlock, isAsyncSection } from './async-block'
 
 const PX_PER_HOUR = 48
 const START_HOUR = 7
@@ -43,6 +44,8 @@ export function ScheduleGrid({ result }: ScheduleGridProps) {
       if (idx != null) daySlots[idx].push(slot)
     }
   }
+
+  const asyncSlots = result.sections.filter(isAsyncSection)
 
   return (
     <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-border bg-surface overflow-hidden">
@@ -109,6 +112,25 @@ export function ScheduleGrid({ result }: ScheduleGridProps) {
             </div>
           ))}
         </div>
+
+        {/* Async/TBA row — sections with no scheduled meeting time have
+            nowhere on the day grid to render, so they get their own row
+            here instead of silently disappearing. */}
+        {asyncSlots.length > 0 && (
+          <div className="px-3">
+            <div className="flex items-center gap-2 pt-3 pb-1.5">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted whitespace-nowrap">
+                Async / TBA
+              </p>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+            <div className="flex flex-wrap gap-2 pb-3">
+              {asyncSlots.map((slot) => (
+                <AsyncBlock key={slot.crn} slot={slot} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

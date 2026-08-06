@@ -25,6 +25,7 @@ docs/
 subsystems/
 dev-log.md
 repomix-output.xml
+.superpowers/
 
 # OS
 .DS_Store

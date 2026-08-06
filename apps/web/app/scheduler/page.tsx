@@ -8,7 +8,6 @@ import { useScraperStatus } from '@/hooks/useScraperStatus'
 import { CourseSelector } from '@/components/scheduler/course-selector'
 import { CommuterToggles } from '@/components/scheduler/commuter-toggles'
 import { ResultNavigator } from '@/components/scheduler/result-navigator'
-import { SectionList, isAsyncSection } from '@/components/scheduler/section-list'
 import { ScheduleGrid } from '@/components/calendar/schedule-grid'
 
 export default function SchedulerPage() {
@@ -69,7 +68,6 @@ export default function SchedulerPage() {
 
   const { lastScrape, isStale } = useScraperStatus()
   const activeResult = results[activeResultIndex] ?? null
-  const asyncCount = activeResult ? activeResult.sections.filter(isAsyncSection).length : 0
 
   const staleBannerText = useMemo(() => {
     if (!lastScrape) return 'Seat availability data age is unknown — verify open seats in Banner before registering.'
@@ -133,16 +131,7 @@ export default function SchedulerPage() {
           </div>
         )}
         {results.length > 0 && <ResultNavigator />}
-        <div className="flex-1 min-h-0 flex flex-col xl:flex-row gap-4">
-          <ScheduleGrid result={activeResult} />
-          {activeResult && <SectionList result={activeResult} />}
-        </div>
-        {activeResult && asyncCount > 0 && (
-          <p className="text-xs text-muted">
-            {asyncCount} online/async section{asyncCount > 1 ? 's' : ''} in this schedule{' '}
-            {asyncCount > 1 ? "don't" : "doesn't"} appear on the calendar — see the section list.
-          </p>
-        )}
+        <ScheduleGrid result={activeResult} />
       </div>
     </div>
   )
